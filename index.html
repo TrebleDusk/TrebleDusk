@@ -463,7 +463,7 @@ const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window
 
 const scene=new THREE.Scene()
 scene.background=new THREE.Color(0x030414)
-scene.fog=new THREE.Fog(0x030414, isMobile?20:40, isMobile?80:200)
+scene.fog=new THREE.Fog(0x030414, isMobile?20:40, isMobile?300:200)
 
 /* CAMERA */
 
@@ -481,7 +481,7 @@ camera.position.set(0,4,12)
 const renderer=new THREE.WebGLRenderer({antialias: !isMobile})
 renderer.setSize(window.innerWidth,window.innerHeight)
 renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio,1.5))
-renderer.shadowMap.enabled = !isMobile
+renderer.shadowMap.enabled = true   // enable on all devices
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 document.body.appendChild(renderer.domElement)
 
@@ -492,7 +492,7 @@ scene.add(ambientLight)
 
 const sunLight = new THREE.DirectionalLight(0xfff4e0, 0)   // sun — off at start (night)
 sunLight.position.set(50, 60, 30)
-sunLight.castShadow = !isMobile
+sunLight.castShadow = !isMobile   // sun shadows desktop only
 sunLight.shadow.mapSize.width  = 1024
 sunLight.shadow.mapSize.height = 1024
 sunLight.shadow.camera.near = 1
@@ -503,13 +503,13 @@ scene.add(sunLight)
 
 const moonLight = new THREE.DirectionalLight(0xb0c4ff, 1.1)  // moon — full at start
 moonLight.position.set(20, 40, 10)
-moonLight.castShadow = !isMobile
-moonLight.shadow.mapSize.width  = 1024
-moonLight.shadow.mapSize.height = 1024
+moonLight.castShadow = true        // enable on mobile too, with tiny map
+moonLight.shadow.mapSize.width  = isMobile ? 256 : 1024
+moonLight.shadow.mapSize.height = isMobile ? 256 : 1024
 moonLight.shadow.camera.near = 1
-moonLight.shadow.camera.far  = 200
-moonLight.shadow.camera.left = -60; moonLight.shadow.camera.right = 60
-moonLight.shadow.camera.top  =  60; moonLight.shadow.camera.bottom = -60
+moonLight.shadow.camera.far  = isMobile ? 80 : 200
+moonLight.shadow.camera.left = isMobile ? -30 : -60; moonLight.shadow.camera.right = isMobile ? 30 : 60
+moonLight.shadow.camera.top  = isMobile ? 30 : 60;  moonLight.shadow.camera.bottom = isMobile ? -30 : -60
 scene.add(moonLight)
 
 // Warm ground bounce
@@ -714,7 +714,7 @@ isMobile
   : new THREE.MeshStandardMaterial({color:0x12122e, roughness:1, metalness:0})
 )
 ground.rotation.x=-Math.PI/2
-ground.receiveShadow = !isMobile
+ground.receiveShadow = true
 scene.add(ground)
 
 /* PATH — centre + two branches */
@@ -843,9 +843,8 @@ const leftLeg=limb(.3,1,-.25,.4)
 const rightLeg=limb(.3,1,.25,.4)
 
 character.add(body,head,leftArm,rightArm,leftLeg,rightLeg)
-if(!isMobile){
-  character.traverse(c=>{ if(c.isMesh){ c.castShadow=true } })
-}
+// Cast shadows on all devices (character is just 6 small boxes — very cheap)
+character.traverse(c=>{ if(c.isMesh){ c.castShadow=true } })
 scene.add(character)
 
 /* ─────────────────────────────────────────
@@ -1323,69 +1322,49 @@ document.addEventListener('keyup', e=>{
 })
 
 Object.entries(dirEls).forEach(([dir, el])=>{
-  el.addEventListener('touchstart', e=>{ e.preventDefault(); setKey(dir, true)  }, {passive:false})
+  el.addEventListener('touchstart', e=>{ e.preventDefault(); startAudio(); setKey(dir, true)  }, {passive:false})
   el.addEventListener('touchend',   e=>{ e.preventDefault(); setKey(dir, false) }, {passive:false})
   el.addEventListener('touchcancel',e=>{ e.preventDefault(); setKey(dir, false) }, {passive:false})
-  el.addEventListener('mousedown',  ()=>setKey(dir, true))
+  el.addEventListener('mousedown',  ()=>{ startAudio(); setKey(dir, true)  })
   el.addEventListener('mouseup',    ()=>setKey(dir, false))
   el.addEventListener('mouseleave', ()=>setKey(dir, false))
 })
 
 /* ─────────────────────────────────────────
-   AUDIO — reliable on iOS/Android
-   Key insight: must start inside the EXACT touch handler,
-   not a document listener that fires after preventDefault
+   AUDIO — simple & reliable on all platforms
+   Web Audio API causes too many iOS edge cases;
+   direct audio element is more dependable.
 ───────────────────────────────────────── */
 
 const song = document.getElementById('song')
-let audioCtx = null
-let gainNode = null
-let sourceConnected = false
 let audioStarted = false
-let targetGain = 0.08
 
 function startAudio(){
   if(audioStarted) return
   audioStarted = true
-
-  // Set a safe initial volume for the fallback path
-  try { song.volume = 0.08 } catch(e){}
-
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-
-    // iOS starts AudioContext in 'suspended' — must resume inside gesture
-    if(audioCtx.state === 'suspended'){
-      audioCtx.resume()
-    }
-
-    gainNode = audioCtx.createGain()
-    gainNode.gain.value = 0.08
-    gainNode.connect(audioCtx.destination)
-
-    const source = audioCtx.createMediaElementSource(song)
-    source.connect(gainNode)
-    sourceConnected = true
-  } catch(e){
-    // Web Audio failed — fall back to song.volume
-    sourceConnected = false
-  }
-
-  song.play().catch(()=>{})
+  song.volume = 0.08
+  const p = song.play()
+  if(p && p.catch) p.catch(()=>{})
 }
 
-// Also hook document-level events as backup (keyboard / mouse users)
+// Called from setKey (inside touch handler) — critical for iOS
+// Also hooked to document events for keyboard/mouse users
 document.addEventListener('keydown',   startAudio, {once:true})
 document.addEventListener('mousedown', startAudio, {once:true})
+// Fallback: also try on any touchend on the document
+document.addEventListener('touchend',  startAudio, {once:true})
 
-// Volume range
 const VOL_MIN  = 0.08
 const VOL_MAX  = 0.35
 const VOL_NEAR = 6
 const VOL_FAR  = 28
 
+let _volFrame = 0
 function updateVolume(){
   if(!audioStarted) return
+  // Only update volume every 10 frames — no need every frame
+  if(++_volFrame % 10 !== 0) return
+
   let minDist = Infinity
   STATIONS.forEach(s=>{
     const dx = character.position.x - s.x
@@ -1395,14 +1374,12 @@ function updateVolume(){
 
   let t = 1 - (minDist - VOL_NEAR) / (VOL_FAR - VOL_NEAR)
   t = Math.max(0, Math.min(1, t))
-  targetGain = VOL_MIN + t * (VOL_MAX - VOL_MIN)
+  const target = VOL_MIN + t * (VOL_MAX - VOL_MIN)
 
-  if(sourceConnected && gainNode && audioCtx){
-    gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.3)
-  } else {
-    // Fallback: direct volume (works on Android Chrome)
-    try { song.volume += (targetGain - song.volume) * 0.06 } catch(e){}
-  }
+  // Smooth volume with simple lerp — works on all browsers
+  try {
+    song.volume = song.volume + (target - song.volume) * 0.15
+  } catch(e){}
 }
 
 /* ─────────────────────────────────────────
@@ -1641,9 +1618,16 @@ function updateNPCs(){
    ANIMATION LOOP
 ───────────────────────────────────────── */
 
+let lastTime = performance.now()
+
 function animate(){
   requestAnimationFrame(animate)
-  stars.rotation.y += 0.0002
+
+  const now = performance.now()
+  const delta = Math.min((now - lastTime) / 16.67, 3)  // normalised to 60fps, cap at 3x
+  lastTime = now
+
+  stars.rotation.y += 0.0002 * delta
 
   let dx=0, dz=0, moving=false
   if(keys.up)    { dz=-1; moving=true }
@@ -1653,8 +1637,8 @@ function animate(){
 
   if(moving){
     if(dx!==0 && dz!==0){ dx*=0.707; dz*=0.707 }
-    character.position.x = clamp(character.position.x + dx*MOVE_SPEED, BOUNDS.minX, BOUNDS.maxX)
-    character.position.z = clamp(character.position.z + dz*MOVE_SPEED, BOUNDS.minZ, BOUNDS.maxZ)
+    character.position.x = clamp(character.position.x + dx*MOVE_SPEED*delta, BOUNDS.minX, BOUNDS.maxX)
+    character.position.z = clamp(character.position.z + dz*MOVE_SPEED*delta, BOUNDS.minZ, BOUNDS.maxZ)
     if(dx!==0||dz!==0){
       characterFacing = Math.atan2(dx,dz)+Math.PI
       character.rotation.y = characterFacing
@@ -1670,8 +1654,8 @@ function animate(){
   // Smooth camera follow
   const targetCamX = character.position.x
   const targetCamZ = character.position.z + 8
-  camera.position.x += (targetCamX - camera.position.x) * 0.08
-  camera.position.z += (targetCamZ - camera.position.z) * 0.08
+  camera.position.x += (targetCamX - camera.position.x) * 0.08 * delta
+  camera.position.z += (targetCamZ - camera.position.z) * 0.08 * delta
   camera.position.y = 4
   camera.lookAt(character.position.x, 2, character.position.z)
 
@@ -1688,15 +1672,17 @@ function animate(){
     bodyInst.instanceMatrix.needsUpdate = true
     headInst.instanceMatrix.needsUpdate = true
   } else {
-    character.position.y += (0 - character.position.y) * 0.1
+    character.position.y += (0 - character.position.y) * 0.1 * delta
   }
 
   checkProximity()
-  updateDayNight()
-  updateNPCs()
 
-  // Rotate planets slowly
-  planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed })
+  // Throttle heavy updates — run every other frame
+  if(Math.round(now / 16) % 2 === 0){
+    updateDayNight()
+    updateNPCs()
+    planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed * 2 })
+  }
 
   // Sweep volumetric beams
   if(beams.length){
@@ -1741,14 +1727,15 @@ if(!isMobile){
   renderer.domElement.style.filter = 'brightness(1.05) contrast(1.02)'
 }
 
-/* SHADOWS ON STAGE GROUPS (desktop only) */
-if(!isMobile){
-  STATIONS.forEach(s=>{
-    s.group.traverse(c=>{
-      if(c.isMesh){ c.castShadow = true; c.receiveShadow = true }
-    })
+/* SHADOWS ON STAGE GROUPS */
+STATIONS.forEach(s=>{
+  s.group.traverse(c=>{
+    if(c.isMesh){
+      c.castShadow    = true
+      c.receiveShadow = !isMobile  // receiving is more expensive, desktop only
+    }
   })
-}
+})
 
 /* COUNTDOWN TIMER */
 function updateCountdown(){
