@@ -1270,7 +1270,7 @@ const fwMats = [
 ]
 
 function createFirework(){
-  const count = isMobile ? 20 : 40
+  const count = isMobile ? 30 : 80
   for(let i=0;i<count;i++){
     const p=new THREE.Mesh(fwGeo, fwMats[Math.floor(Math.random()*3)])
     p.position.set(Math.random()*40-20,20,-60)
@@ -1465,11 +1465,11 @@ if(!isMobile){
    DAY / NIGHT CYCLE
 ───────────────────────────────────────── */
 
-// Pre-allocate to avoid GC pressure every frame
+// Pre-allocated colours
 const _skyCol   = new THREE.Color()
 const _nightCol = new THREE.Color(0x1a1a3a)
 const _dayCol   = new THREE.Color(0x556677)
-scene.background = new THREE.Color(0x030414)  // ensure it's a Color object for .copy()
+scene.background = new THREE.Color(0x030414)
 
 function updateDayNight(){
   dayT = (dayT + DAY_SPEED) % 1.0
@@ -1487,7 +1487,6 @@ function updateDayNight(){
   const day      = sunAbove
   const nightAmt = 1 - day
 
-  // Reuse _skyCol — no allocation
   _skyCol.copy(SKY_NIGHT)
   if(dawn > 0.01) _skyCol.lerp(SKY_DAWN, dawn)
   if(day  > 0.01) _skyCol.lerp(SKY_DAY,  day * 0.6)
@@ -1510,11 +1509,9 @@ function updateDayNight(){
 const NPC_COUNT = isMobile ? 8 : 18
 const npcs = []
 
-// Shared geometries — created once
 const npcBodyGeo = new THREE.CylinderGeometry(0.28,0.35,1.1,6)
 const npcHeadGeo = new THREE.SphereGeometry(0.22,6,6)
 const npcArmGeo  = new THREE.BoxGeometry(0.15,0.6,0.15)
-const npcSkinMat = new THREE.MeshBasicMaterial({color:0xffccaa})
 
 const NPC_COLOURS = [
   0xff6644, 0x44aaff, 0xffcc44, 0xcc44ff,
@@ -1522,27 +1519,26 @@ const NPC_COLOURS = [
   0xffaa44, 0xaa44ff, 0x44ffcc, 0xff4444
 ]
 
-// Pre-build one BasicMaterial per colour — shared across all NPCs of that colour
-const npcMatCache = {}
-function npcMat(hex){
-  if(!npcMatCache[hex]) npcMatCache[hex] = new THREE.MeshBasicMaterial({color:hex})
-  return npcMatCache[hex]
-}
-
 for(let i=0; i<NPC_COUNT; i++){
   const col = NPC_COLOURS[i % NPC_COLOURS.length]
   const npcGroup = new THREE.Group()
 
-  const body = new THREE.Mesh(npcBodyGeo, npcMat(col))
+  const body = new THREE.Mesh(npcBodyGeo, new THREE.MeshStandardMaterial({
+    color:col, emissive:col, emissiveIntensity:0.12, roughness:0.8
+  }))
   body.position.y = 0.55
   npcGroup.add(body)
 
-  const head = new THREE.Mesh(npcHeadGeo, npcSkinMat)
+  const head = new THREE.Mesh(npcHeadGeo, new THREE.MeshStandardMaterial({
+    color:0xffccaa, roughness:0.9
+  }))
   head.position.y = 1.42
   npcGroup.add(head)
 
   ;[-0.38, 0.38].forEach(ax=>{
-    const arm = new THREE.Mesh(npcArmGeo, npcMat(col))
+    const arm = new THREE.Mesh(npcArmGeo, new THREE.MeshStandardMaterial({
+      color:col, emissive:col, emissiveIntensity:0.1
+    }))
     arm.position.set(ax, 0.8, 0)
     npcGroup.add(arm)
   })
@@ -1646,27 +1642,26 @@ function animate(){
   camera.position.y = 4
   camera.lookAt(character.position.x, 2, character.position.z)
 
-  // Crowd bob — only near main stage, throttled to every 3rd frame
-  if(activeStation && activeStation.z < -40 && Math.round(now/16)%3===0){
-    character.position.y = Math.sin(now*0.0008)*0.15
-    const ct = now*0.004
+  // Crowd bob when near main stage
+  if(activeStation && activeStation.z < -40){
+    character.position.y = Math.sin(Date.now()*0.008)*0.15
+    const t = Date.now()*0.004
     for(let i=0;i<CROWD_COUNT;i++){
-      const bob = Math.sin(ct+i)*0.12
+      const bob = Math.sin(t+i)*0.12
       const cp = crowdPositions[i]
       _dummy.position.set(cp.x,0.6+bob,cp.z); _dummy.updateMatrix(); bodyInst.setMatrixAt(i,_dummy.matrix)
       _dummy.position.set(cp.x,1.5+bob,cp.z); _dummy.updateMatrix(); headInst.setMatrixAt(i,_dummy.matrix)
     }
     bodyInst.instanceMatrix.needsUpdate = true
     headInst.instanceMatrix.needsUpdate = true
-  } else if(!activeStation || activeStation.z >= -40){
+  } else {
     character.position.y += (0 - character.position.y) * 0.1 * delta
   }
 
   checkProximity()
-
-  const frameN = Math.round(now / 16)
-  if(frameN % 4 === 0) updateDayNight()
-  if(frameN % 2 === 0){ updateNPCs(); planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed * 4 }) }
+  updateDayNight()
+  updateNPCs()
+  planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed })
 
   // Sweep volumetric beams
   if(beams.length){
