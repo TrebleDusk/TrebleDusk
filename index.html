@@ -429,6 +429,16 @@ crowd.push(person)
 
 }
 
+/* generate crowd */
+
+for(let i=0;i<250;i++){
+
+const x=(Math.random()-0.5)*30
+const z=-25-Math.random()*10
+
+createPerson(x,z)
+
+}
 
 /* STAGE LIGHTS */
 
@@ -488,11 +498,9 @@ fireworks.push(p)
 
 /* MOVEMENT */
 
-let intro=false
+let intro=true
 let moving=false
 let dancing=false
-  
-const clock = new THREE.Clock()
 let introTime=0
 const stopZ=-32
 
@@ -506,8 +514,6 @@ this.style.display="none"
 function animate(){
 
 requestAnimationFrame(animate)
-
-const delta = clock.getDelta()
 
 stars.rotation.y+=0.0002
 
@@ -525,8 +531,8 @@ if(moving){
 
 if(character.position.z>stopZ){
 
-character.position.z -= 5 * delta
-camera.position.z -= 5 * delta
+character.position.z-=.09
+camera.position.z-=.09
 
 const walk=Math.sin(Date.now()*0.01)
 
