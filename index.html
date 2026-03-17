@@ -116,11 +116,14 @@ z-index:10;
 
 <script>
 
+/* MOBILE DETECTION */
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768
+
 /* SCENE */
 
 const scene=new THREE.Scene()
 scene.background=new THREE.Color(0x020312)
-scene.fog=new THREE.Fog(0x020312,40,200)
+scene.fog=new THREE.Fog(0x020312, isMobile?20:40, isMobile?80:200)
 
 /* CAMERA */
 
@@ -135,9 +138,10 @@ camera.position.set(0,4,12)
 
 /* RENDERER */
 
-const renderer=new THREE.WebGLRenderer({antialias:true})
+const renderer=new THREE.WebGLRenderer({antialias: !isMobile})
 renderer.setSize(window.innerWidth,window.innerHeight)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5))
+// Cap at 1x on mobile — this alone can double framerate on high-DPI phones
+renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio,1.5))
 document.body.appendChild(renderer.domElement)
 
 /* LIGHTING */
@@ -151,14 +155,10 @@ scene.add(moonLight)
 /* PLANETS */
 
 function createPlanet(size,color,x,y,z){
-
+const seg = isMobile ? 10 : 32
 const planet=new THREE.Mesh(
-new THREE.SphereGeometry(size,32,32),
-new THREE.MeshStandardMaterial({
-color:color,
-emissive:color,
-emissiveIntensity:0.2
-})
+new THREE.SphereGeometry(size,seg,seg),
+new THREE.MeshBasicMaterial({color:color})
 )
 
 planet.position.set(x,y,z)
@@ -174,7 +174,9 @@ createPlanet(35,0xaa66ff,500,120,-800)
 
 const ground=new THREE.Mesh(
 new THREE.PlaneGeometry(600,600),
-new THREE.MeshStandardMaterial({color:0x12122a})
+isMobile
+  ? new THREE.MeshBasicMaterial({color:0x12122a})
+  : new THREE.MeshStandardMaterial({color:0x12122a})
 )
 
 ground.rotation.x=-Math.PI/2
@@ -196,29 +198,25 @@ scene.add(path)
 function createLamp(x,z){
 
 const pole=new THREE.Mesh(
-new THREE.CylinderGeometry(0.08,0.08,3,16),
-new THREE.MeshStandardMaterial({color:0x555555})
+new THREE.CylinderGeometry(0.08,0.08,3,6),
+new THREE.MeshBasicMaterial({color:0x555555})
 )
-
 pole.position.set(x,1.5,z)
 scene.add(pole)
 
 const bulb=new THREE.Mesh(
-new THREE.SphereGeometry(0.2),
-new THREE.MeshStandardMaterial({
-color:0xffcc66,
-emissive:0xffaa33,
-emissiveIntensity:2
-})
+new THREE.SphereGeometry(0.2,6,6),
+new THREE.MeshBasicMaterial({color:0xffcc66})
 )
-
 bulb.position.set(x,3,z)
 scene.add(bulb)
 
-const light=new THREE.PointLight(0xffaa33,1.2,10)
-light.position.set(x,3,z)
-
-scene.add(light)
+// Skip per-lamp PointLights on mobile — they're very expensive
+if(!isMobile){
+  const light=new THREE.PointLight(0xffaa33,1.2,10)
+  light.position.set(x,3,z)
+  scene.add(light)
+}
 
 }
 
@@ -234,7 +232,8 @@ createLamp(2.5,-20-i*8)
 const starGeo=new THREE.BufferGeometry()
 let starVerts=[]
 
-for(let i=0;i<5000;i++){
+const starCount = isMobile ? 1500 : 5000
+for(let i=0;i<starCount;i++){
 
 starVerts.push(
 (Math.random()-0.5)*1500,
@@ -259,8 +258,8 @@ scene.add(stars)
 /* MOON */
 
 const moon=new THREE.Mesh(
-new THREE.SphereGeometry(30,32,32),
-new THREE.MeshStandardMaterial({color:0xffffdd})
+new THREE.SphereGeometry(30, isMobile?8:32, isMobile?8:32),
+new THREE.MeshBasicMaterial({color:0xffffdd})
 )
 
 moon.position.set(-250,300,-500)
@@ -270,7 +269,9 @@ scene.add(moon)
 
 const character=new THREE.Group()
 
-const charMat=new THREE.MeshStandardMaterial({color:0xffff00})
+const charMat = isMobile
+  ? new THREE.MeshBasicMaterial({color:0xffff00})
+  : new THREE.MeshStandardMaterial({color:0xffff00})
 
 function limb(w,h,x,y){
 const m=new THREE.Mesh(
@@ -310,10 +311,11 @@ scene.add(hall)
 /* PILLARS */
 
 function pillar(x){
-
 const p=new THREE.Mesh(
-new THREE.CylinderGeometry(.8,.8,10,32),
-new THREE.MeshStandardMaterial({color:0x111111})
+new THREE.CylinderGeometry(.8,.8,10, isMobile?8:32),
+isMobile
+  ? new THREE.MeshBasicMaterial({color:0x111111})
+  : new THREE.MeshStandardMaterial({color:0x111111})
 )
 
 p.position.set(x,5,-52)
@@ -341,8 +343,8 @@ scene.add(stage)
 /* DRUM KIT */
 
 const drum=new THREE.Mesh(
-new THREE.CylinderGeometry(1.5,1.5,1,32),
-new THREE.MeshStandardMaterial({color:0xffffff})
+new THREE.CylinderGeometry(1.5,1.5,1, isMobile?10:32),
+new THREE.MeshBasicMaterial({color:0xffffff})
 )
 
 drum.position.set(0,1.2,-44)
@@ -359,8 +361,8 @@ stand.position.set(x,2.5,-44)
 scene.add(stand)
 
 const plate=new THREE.Mesh(
-new THREE.CylinderGeometry(1,1,.1,32),
-new THREE.MeshStandardMaterial({color:0xffd700})
+new THREE.CylinderGeometry(1,1,.1, isMobile?10:32),
+new THREE.MeshBasicMaterial({color:0xffd700})
 )
 
 plate.position.set(x,3.6,-44)
@@ -443,88 +445,88 @@ scene.add(s)
 speaker(-12)
 speaker(12)
 
-/* CROWD */
+/* CROWD — InstancedMesh: 250 people = 2 draw calls instead of 500 */
 
-const crowd=[]
+const CROWD_COUNT = isMobile ? 80 : 250
+const crowdPositions = []
 
-function createPerson(x,z){
-
-const person=new THREE.Group()
-
-const body=new THREE.Mesh(
-new THREE.CylinderGeometry(0.3,0.4,1.2,8),
-new THREE.MeshStandardMaterial({color:0x111111})
+// Body instances
+const bodyInst = new THREE.InstancedMesh(
+  new THREE.CylinderGeometry(0.3,0.4,1.2,6),
+  new THREE.MeshBasicMaterial({color:0x222222}),
+  CROWD_COUNT
+)
+// Head instances
+const headInst = new THREE.InstancedMesh(
+  new THREE.SphereGeometry(0.25,5,5),
+  new THREE.MeshBasicMaterial({color:0x333333}),
+  CROWD_COUNT
 )
 
-body.position.y=0.6
+const _dummy = new THREE.Object3D()
 
-const head=new THREE.Mesh(
-new THREE.SphereGeometry(0.25,8,8),
-new THREE.MeshStandardMaterial({color:0x111111})
-)
+for(let i=0;i<CROWD_COUNT;i++){
+  const x=(Math.random()-0.5)*30
+  const z=-25-Math.random()*10
+  crowdPositions.push({x, z, baseY:0})
 
-head.position.y=1.5
+  _dummy.position.set(x, 0.6, z)
+  _dummy.updateMatrix()
+  bodyInst.setMatrixAt(i, _dummy.matrix)
 
-person.add(body)
-person.add(head)
-
-person.position.set(x,0,z)
-
-scene.add(person)
-
-crowd.push(person)
-
+  _dummy.position.set(x, 1.5, z)
+  _dummy.updateMatrix()
+  headInst.setMatrixAt(i, _dummy.matrix)
 }
 
-for(let i=0;i<250;i++){
+bodyInst.instanceMatrix.needsUpdate = true
+headInst.instanceMatrix.needsUpdate = true
+scene.add(bodyInst)
+scene.add(headInst)
 
-const x=(Math.random()-0.5)*30
-const z=-25-Math.random()*10
+/* STAGE LIGHTS — skip expensive SpotLights on mobile */
 
-createPerson(x,z)
+if(!isMobile){
 
-}
-
-/* STAGE LIGHTS */
-
-function createLight(x){
-
+function createStageLight(x){
 const light=new THREE.SpotLight(0xff7a00,8)
 light.position.set(x,12,-40)
 light.angle=Math.PI/6
 light.penumbra=.5
 light.distance=120
-
 const target=new THREE.Object3D()
 target.position.set(0,0,-42)
 scene.add(target)
-
 light.target=target
-
 scene.add(light)
-
 }
 
-createLight(-8)
-createLight(-4)
-createLight(0)
-createLight(4)
-createLight(8)
+createStageLight(-8)
+createStageLight(-4)
+createStageLight(0)
+createStageLight(4)
+createStageLight(8)
+
+} else {
+  // On mobile just boost ambient so scene still looks bright
+  scene.add(new THREE.AmbientLight(0xff9955, 0.4))
+}
 
 /* FIREWORKS */
 
 let fireworks=[]
+const fwGeo = new THREE.SphereGeometry(.25, isMobile?4:8, isMobile?4:8)
+const fwMats = [
+  new THREE.MeshBasicMaterial({color:0xff7a00}),
+  new THREE.MeshBasicMaterial({color:0xffffff}),
+  new THREE.MeshBasicMaterial({color:0x4488ff})
+]
 
 function createFirework(){
+const count = isMobile ? 30 : 80
+for(let i=0;i<count;i++){
 
-for(let i=0;i<80;i++){
-
-const p=new THREE.Mesh(
-new THREE.SphereGeometry(.25),
-new THREE.MeshBasicMaterial({
-color:[0xff7a00,0xffffff,0x4488ff][Math.floor(Math.random()*3)]
-})
-)
+const p=new THREE.Mesh(fwGeo, fwMats[Math.floor(Math.random()*3)])
 
 p.position.set(Math.random()*40-20,20,-70)
 
@@ -684,13 +686,26 @@ if(dancing){
   character.rotation.y += 0.05
   character.position.y = Math.sin(Date.now()*0.01) * 0.3
 
-  crowd.forEach((p,i)=>{
-    p.position.y = Math.sin(Date.now()*0.004+i) * 0.15
-  })
+  // Animate instanced crowd
+  const t = Date.now()*0.004
+  for(let i=0;i<CROWD_COUNT;i++){
+    const bob = Math.sin(t+i)*0.15
+    const cp = crowdPositions[i]
+
+    _dummy.position.set(cp.x, 0.6+bob, cp.z)
+    _dummy.updateMatrix()
+    bodyInst.setMatrixAt(i, _dummy.matrix)
+
+    _dummy.position.set(cp.x, 1.5+bob, cp.z)
+    _dummy.updateMatrix()
+    headInst.setMatrixAt(i, _dummy.matrix)
+  }
+  bodyInst.instanceMatrix.needsUpdate = true
+  headInst.instanceMatrix.needsUpdate = true
 
   // Camera orbits slightly during concert
-  const t = Date.now() * 0.0003
-  camera.position.x += (Math.sin(t)*2 - camera.position.x) * 0.01
+  const ct = Date.now() * 0.0003
+  camera.position.x += (Math.sin(ct)*2 - camera.position.x) * 0.01
   camera.lookAt(character.position.x, 2, character.position.z)
 }
 
