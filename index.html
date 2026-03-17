@@ -958,7 +958,7 @@ Object.entries(dirEls).forEach(([dir, el])=>{
 ───────────────────────────────────────── */
 
 const song = document.getElementById('song')
-song.volume = 0.10  // quiet baseline
+song.volume = 0.05  // quiet baseline
 
 // Start on first user gesture (required by browsers)
 let audioStarted = false
@@ -972,8 +972,8 @@ document.addEventListener('touchstart', startAudio, {once:true})
 document.addEventListener('mousedown', startAudio, {once:true})
 
 // Volume range constants
-const VOL_MIN  = 0.10   // far away
-const VOL_MAX  = 0.50   // right at stage
+const VOL_MIN  = 0.05   // far away
+const VOL_MAX  = 0.25   // right at stage
 const VOL_NEAR = 6      // full volume within this distance
 const VOL_FAR  = 28     // quiet beyond this distance
 
