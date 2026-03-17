@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Treble Dusk 7.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <style>
 body{
@@ -16,39 +17,45 @@ position:absolute;
 bottom:24px;
 left:50%;
 transform:translateX(-50%);
-display:flex;
-flex-direction:column;
-align-items:center;
+display:grid;
+grid-template-columns:repeat(3,56px);
+grid-template-rows:repeat(3,56px);
 gap:6px;
 z-index:10;
 user-select:none;
-}
-
-.key-row{
-display:flex;
-gap:6px;
+touch-action:none;
 }
 
 .key{
-width:42px;
-height:42px;
+width:56px;
+height:56px;
 background:rgba(255,255,255,0.12);
 border:2px solid rgba(255,255,255,0.3);
-border-radius:8px;
+border-radius:10px;
 display:flex;
 align-items:center;
 justify-content:center;
 color:white;
-font-size:18px;
+font-size:22px;
 font-weight:bold;
-transition:background 0.1s, border-color 0.1s;
+transition:background 0.08s, border-color 0.08s, transform 0.08s;
 backdrop-filter:blur(6px);
+cursor:pointer;
+-webkit-tap-highlight-color:transparent;
 }
 
 .key.active{
-background:rgba(255,122,0,0.5);
+background:rgba(255,122,0,0.55);
 border-color:#ff7a00;
+transform:scale(0.93);
 }
+
+/* grid placement */
+#key-up    { grid-column:2; grid-row:1; }
+#key-left  { grid-column:1; grid-row:2; }
+#key-mid   { grid-column:2; grid-row:2; background:rgba(255,255,255,0.05); pointer-events:none; }
+#key-right { grid-column:3; grid-row:2; }
+#key-down  { grid-column:2; grid-row:3; }
 
 #title{
 position:absolute;
@@ -85,27 +92,16 @@ z-index:10;
 
 <body>
 
-<!-- Controls HUD -->
+<!-- Controls D-Pad -->
 <div id="controls-hud">
-  <div class="key-row">
-    <div class="key" id="key-w">W</div>
-  </div>
-  <div class="key-row">
-    <div class="key" id="key-a">A</div>
-    <div class="key" id="key-s">S</div>
-    <div class="key" id="key-d">D</div>
-  </div>
-  <div class="key-row" style="margin-top:4px;">
-    <div class="key" id="key-up">↑</div>
-  </div>
-  <div class="key-row">
-    <div class="key" id="key-left">←</div>
-    <div class="key" id="key-down">↓</div>
-    <div class="key" id="key-right">→</div>
-  </div>
+  <div class="key" id="key-up">↑</div>
+  <div class="key" id="key-left">←</div>
+  <div class="key" id="key-mid"></div>
+  <div class="key" id="key-right">→</div>
+  <div class="key" id="key-down">↓</div>
 </div>
 
-<div id="hint">WASD or Arrow Keys to move</div>
+<div id="hint">Tap d-pad or use WASD / Arrow Keys</div>
 
 <div id="title">
 <h1>Treble Dusk 7.0</h1>
@@ -546,42 +542,53 @@ fireworks.push(p)
 }
 
 /* ============================
-   KEYBOARD MOVEMENT CONTROLS
+   UNIFIED TOUCH + KEYBOARD CONTROLS
    ============================ */
 
-const keys={
-  w:false, a:false, s:false, d:false,
-  ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false
+const keys={ up:false, down:false, left:false, right:false }
+
+// Map keyboard keys to directions
+const keyMap={
+  'w':'up','ArrowUp':'up',
+  's':'down','ArrowDown':'down',
+  'a':'left','ArrowLeft':'left',
+  'd':'right','ArrowRight':'right'
 }
 
-const keyEls={
-  w: document.getElementById('key-w'),
-  a: document.getElementById('key-a'),
-  s: document.getElementById('key-s'),
-  d: document.getElementById('key-d'),
-  ArrowUp: document.getElementById('key-up'),
-  ArrowLeft: document.getElementById('key-left'),
-  ArrowDown: document.getElementById('key-down'),
-  ArrowRight: document.getElementById('key-right')
+const dirEls={
+  up:    document.getElementById('key-up'),
+  down:  document.getElementById('key-down'),
+  left:  document.getElementById('key-left'),
+  right: document.getElementById('key-right')
 }
 
+function setKey(dir, val){
+  if(!(dir in keys)) return
+  keys[dir] = val
+  if(val) dirEls[dir].classList.add('active')
+  else    dirEls[dir].classList.remove('active')
+  document.getElementById('hint').style.opacity='0'
+}
+
+// Keyboard
 document.addEventListener('keydown', e=>{
-  const k = e.key
-  if(k in keys){
-    e.preventDefault()
-    keys[k]=true
-    if(keyEls[k]) keyEls[k].classList.add('active')
-    // hide hint on first keypress
-    document.getElementById('hint').style.opacity='0'
-  }
+  const dir = keyMap[e.key]
+  if(dir){ e.preventDefault(); setKey(dir, true) }
+})
+document.addEventListener('keyup', e=>{
+  const dir = keyMap[e.key]
+  if(dir){ setKey(dir, false) }
 })
 
-document.addEventListener('keyup', e=>{
-  const k = e.key
-  if(k in keys){
-    keys[k]=false
-    if(keyEls[k]) keyEls[k].classList.remove('active')
-  }
+// Touch — attach to each d-pad button
+Object.entries(dirEls).forEach(([dir, el])=>{
+  el.addEventListener('touchstart', e=>{ e.preventDefault(); setKey(dir, true)  }, {passive:false})
+  el.addEventListener('touchend',   e=>{ e.preventDefault(); setKey(dir, false) }, {passive:false})
+  el.addEventListener('touchcancel',e=>{ e.preventDefault(); setKey(dir, false) }, {passive:false})
+  // also support mouse hold for desktop testing
+  el.addEventListener('mousedown',  e=>{ setKey(dir, true)  })
+  el.addEventListener('mouseup',    e=>{ setKey(dir, false) })
+  el.addEventListener('mouseleave', e=>{ setKey(dir, false) })
 })
 
 /* Movement state */
@@ -608,10 +615,10 @@ stars.rotation.y+=0.0002
 let moving = false
 let dx = 0, dz = 0
 
-if(keys.w || keys.ArrowUp)    { dz = -1; moving = true }
-if(keys.s || keys.ArrowDown)  { dz =  1; moving = true }
-if(keys.a || keys.ArrowLeft)  { dx = -1; moving = true }
-if(keys.d || keys.ArrowRight) { dx =  1; moving = true }
+if(keys.up)    { dz = -1; moving = true }
+if(keys.down)  { dz =  1; moving = true }
+if(keys.left)  { dx = -1; moving = true }
+if(keys.right) { dx =  1; moving = true }
 
 if(moving && !dancing){
 
