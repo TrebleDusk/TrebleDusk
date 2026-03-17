@@ -448,10 +448,6 @@ body{
   <div class="key" id="key-down">↓</div>
 </div>
 
-<audio id="song" loop>
-  <source src="song.mp3" type="audio/mpeg">
-</audio>
-
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
 <script>
@@ -1274,7 +1270,7 @@ const fwMats = [
 ]
 
 function createFirework(){
-  const count = isMobile ? 30 : 80
+  const count = isMobile ? 20 : 40
   for(let i=0;i<count;i++){
     const p=new THREE.Mesh(fwGeo, fwMats[Math.floor(Math.random()*3)])
     p.position.set(Math.random()*40-20,20,-60)
@@ -1331,27 +1327,34 @@ Object.entries(dirEls).forEach(([dir, el])=>{
 })
 
 /* ─────────────────────────────────────────
-   AUDIO — simple & reliable on all platforms
-   Web Audio API causes too many iOS edge cases;
-   direct audio element is more dependable.
+   AUDIO — bulletproof iOS/Android
+   Creating a NEW Audio() object synchronously
+   inside the gesture is the most reliable iOS unlock.
 ───────────────────────────────────────── */
 
-const song = document.getElementById('song')
+let song = null
 let audioStarted = false
 
 function startAudio(){
   if(audioStarted) return
   audioStarted = true
+
+  // Create the Audio object RIGHT HERE inside the gesture — iOS requires this
+  song = new Audio('song.mp3')
+  song.loop = true
   song.volume = 0.08
+
+  // Play immediately — still inside the synchronous gesture call stack
   const p = song.play()
-  if(p && p.catch) p.catch(()=>{})
+  if(p) p.catch(e => {
+    // If autoplay blocked, retry once on next touch
+    audioStarted = false
+    song = null
+  })
 }
 
-// Called from setKey (inside touch handler) — critical for iOS
-// Also hooked to document events for keyboard/mouse users
 document.addEventListener('keydown',   startAudio, {once:true})
 document.addEventListener('mousedown', startAudio, {once:true})
-// Fallback: also try on any touchend on the document
 document.addEventListener('touchend',  startAudio, {once:true})
 
 const VOL_MIN  = 0.08
@@ -1361,8 +1364,7 @@ const VOL_FAR  = 28
 
 let _volFrame = 0
 function updateVolume(){
-  if(!audioStarted) return
-  // Only update volume every 10 frames — no need every frame
+  if(!audioStarted || !song) return
   if(++_volFrame % 10 !== 0) return
 
   let minDist = Infinity
@@ -1375,11 +1377,7 @@ function updateVolume(){
   let t = 1 - (minDist - VOL_NEAR) / (VOL_FAR - VOL_NEAR)
   t = Math.max(0, Math.min(1, t))
   const target = VOL_MIN + t * (VOL_MAX - VOL_MIN)
-
-  // Smooth volume with simple lerp — works on all browsers
-  try {
-    song.volume = song.volume + (target - song.volume) * 0.15
-  } catch(e){}
+  try { song.volume = song.volume + (target - song.volume) * 0.15 } catch(e){}
 }
 
 /* ─────────────────────────────────────────
@@ -1467,13 +1465,11 @@ if(!isMobile){
    DAY / NIGHT CYCLE
 ───────────────────────────────────────── */
 
-function lerpColor(a, b, t){
-  return new THREE.Color(
-    a.r + (b.r-a.r)*t,
-    a.g + (b.g-a.g)*t,
-    a.b + (b.b-a.b)*t
-  )
-}
+// Pre-allocate to avoid GC pressure every frame
+const _skyCol   = new THREE.Color()
+const _nightCol = new THREE.Color(0x1a1a3a)
+const _dayCol   = new THREE.Color(0x556677)
+scene.background = new THREE.Color(0x030414)  // ensure it's a Color object for .copy()
 
 function updateDayNight(){
   dayT = (dayT + DAY_SPEED) % 1.0
@@ -1484,34 +1480,24 @@ function updateDayNight(){
 
   const sunAbove = Math.max(0, Math.sin(sunAngle))
   sunLight.intensity  = sunAbove * 1.8
-  // Moon always provides decent ambient-level fill — minimum 0.7
   moonLight.intensity = 0.7 + Math.max(0, -Math.sin(sunAngle)) * 0.8
 
-  const dawn = Math.max(0, 1 - Math.abs(dayT - 0.25) * 8)
-  const dusk = Math.max(0, 1 - Math.abs(dayT - 0.75) * 8)
-  const day  = sunAbove
+  const dawn     = Math.max(0, 1 - Math.abs(dayT - 0.25) * 8)
+  const dusk     = Math.max(0, 1 - Math.abs(dayT - 0.75) * 8)
+  const day      = sunAbove
   const nightAmt = 1 - day
 
-  // Sky colour
-  let skyCol = SKY_NIGHT.clone()
-  if(dawn > 0.01) skyCol = lerpColor(skyCol, SKY_DAWN, dawn)
-  if(day  > 0.01) skyCol = lerpColor(skyCol, SKY_DAY,  day * 0.6)
-  if(dusk > 0.01) skyCol = lerpColor(skyCol, SKY_DUSK, dusk)
-  scene.background = skyCol
-  scene.fog.color  = skyCol
+  // Reuse _skyCol — no allocation
+  _skyCol.copy(SKY_NIGHT)
+  if(dawn > 0.01) _skyCol.lerp(SKY_DAWN, dawn)
+  if(day  > 0.01) _skyCol.lerp(SKY_DAY,  day * 0.6)
+  if(dusk > 0.01) _skyCol.lerp(SKY_DUSK, dusk)
+  scene.background.copy(_skyCol)
+  scene.fog.color.copy(_skyCol)
 
-  // Ambient — NEVER go below 0.9 intensity, and use a visible indigo colour at night
-  // so MeshStandardMaterial ground always has enough light to show its colour
   ambientLight.intensity = 0.9 + day * 0.9
-  const nightCol = new THREE.Color(0x1a1a3a)   // visible indigo — not black
-  const dayCol   = new THREE.Color(0x556677)
-  ambientLight.color.lerpColors(nightCol, dayCol, day * 0.8)
-
-  if(dawn > 0.01 || dusk > 0.01){
-    sunLight.color.set(0xff8844)
-  } else {
-    sunLight.color.set(0xfff4e0)
-  }
+  ambientLight.color.lerpColors(_nightCol, _dayCol, day * 0.8)
+  sunLight.color.setHex(dawn > 0.01 || dusk > 0.01 ? 0xff8844 : 0xfff4e0)
 
   stars.material.opacity = Math.max(0.05, nightAmt * 0.9)
   stars.material.transparent = true
@@ -1524,38 +1510,39 @@ function updateDayNight(){
 const NPC_COUNT = isMobile ? 8 : 18
 const npcs = []
 
+// Shared geometries — created once
 const npcBodyGeo = new THREE.CylinderGeometry(0.28,0.35,1.1,6)
 const npcHeadGeo = new THREE.SphereGeometry(0.22,6,6)
+const npcArmGeo  = new THREE.BoxGeometry(0.15,0.6,0.15)
+const npcSkinMat = new THREE.MeshBasicMaterial({color:0xffccaa})
 
-// Varied outfit colours for NPCs
 const NPC_COLOURS = [
   0xff6644, 0x44aaff, 0xffcc44, 0xcc44ff,
   0x44ffaa, 0xff4488, 0x88ff44, 0x4488ff,
   0xffaa44, 0xaa44ff, 0x44ffcc, 0xff4444
 ]
 
+// Pre-build one BasicMaterial per colour — shared across all NPCs of that colour
+const npcMatCache = {}
+function npcMat(hex){
+  if(!npcMatCache[hex]) npcMatCache[hex] = new THREE.MeshBasicMaterial({color:hex})
+  return npcMatCache[hex]
+}
+
 for(let i=0; i<NPC_COUNT; i++){
   const col = NPC_COLOURS[i % NPC_COLOURS.length]
   const npcGroup = new THREE.Group()
 
-  const body = new THREE.Mesh(npcBodyGeo, new THREE.MeshStandardMaterial({
-    color: col, emissive: col, emissiveIntensity: 0.12, roughness: 0.8
-  }))
+  const body = new THREE.Mesh(npcBodyGeo, npcMat(col))
   body.position.y = 0.55
   npcGroup.add(body)
 
-  const head = new THREE.Mesh(npcHeadGeo, new THREE.MeshStandardMaterial({
-    color: 0xffccaa, roughness: 0.9
-  }))
+  const head = new THREE.Mesh(npcHeadGeo, npcSkinMat)
   head.position.y = 1.42
   npcGroup.add(head)
 
-  // Arms
   ;[-0.38, 0.38].forEach(ax=>{
-    const arm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.15,0.6,0.15),
-      new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:0.1})
-    )
+    const arm = new THREE.Mesh(npcArmGeo, npcMat(col))
     arm.position.set(ax, 0.8, 0)
     npcGroup.add(arm)
   })
@@ -1659,30 +1646,27 @@ function animate(){
   camera.position.y = 4
   camera.lookAt(character.position.x, 2, character.position.z)
 
-  // Crowd bob when near main stage
-  if(activeStation && activeStation.z < -40){
-    character.position.y = Math.sin(Date.now()*0.008)*0.15
-    const t = Date.now()*0.004
+  // Crowd bob — only near main stage, throttled to every 3rd frame
+  if(activeStation && activeStation.z < -40 && Math.round(now/16)%3===0){
+    character.position.y = Math.sin(now*0.0008)*0.15
+    const ct = now*0.004
     for(let i=0;i<CROWD_COUNT;i++){
-      const bob = Math.sin(t+i)*0.12
+      const bob = Math.sin(ct+i)*0.12
       const cp = crowdPositions[i]
       _dummy.position.set(cp.x,0.6+bob,cp.z); _dummy.updateMatrix(); bodyInst.setMatrixAt(i,_dummy.matrix)
       _dummy.position.set(cp.x,1.5+bob,cp.z); _dummy.updateMatrix(); headInst.setMatrixAt(i,_dummy.matrix)
     }
     bodyInst.instanceMatrix.needsUpdate = true
     headInst.instanceMatrix.needsUpdate = true
-  } else {
+  } else if(!activeStation || activeStation.z >= -40){
     character.position.y += (0 - character.position.y) * 0.1 * delta
   }
 
   checkProximity()
 
-  // Throttle heavy updates — run every other frame
-  if(Math.round(now / 16) % 2 === 0){
-    updateDayNight()
-    updateNPCs()
-    planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed * 2 })
-  }
+  const frameN = Math.round(now / 16)
+  if(frameN % 4 === 0) updateDayNight()
+  if(frameN % 2 === 0){ updateNPCs(); planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed * 4 }) }
 
   // Sweep volumetric beams
   if(beams.length){
@@ -1725,6 +1709,32 @@ setTimeout(()=>{
 /* BLOOM — CSS filter on canvas */
 if(!isMobile){
   renderer.domElement.style.filter = 'brightness(1.05) contrast(1.02)'
+}
+
+/* TAP TO UNMUTE — fallback shown only on mobile if audio hasn't started after 3s */
+if(isMobile){
+  const muteBtn = document.createElement('div')
+  muteBtn.id = 'mute-btn'
+  muteBtn.innerHTML = '🔊 Tap to enable music'
+  muteBtn.style.cssText = `
+    position:fixed; bottom:210px; left:50%; transform:translateX(-50%);
+    background:rgba(255,122,0,0.9); color:#fff;
+    font-family:'Outfit',sans-serif; font-size:13px; font-weight:600;
+    letter-spacing:0.15em; text-transform:uppercase;
+    padding:10px 22px; border-radius:40px; z-index:50;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+    box-shadow:0 4px 20px rgba(255,122,0,0.5);
+  `
+  document.body.appendChild(muteBtn)
+
+  muteBtn.addEventListener('touchstart', e=>{
+    e.preventDefault()
+    startAudio()
+    muteBtn.style.display = 'none'
+  }, {passive:false})
+
+  // Hide after 8 seconds regardless, or when audio starts
+  setTimeout(()=>{ muteBtn.style.display='none' }, 8000)
 }
 
 /* SHADOWS ON STAGE GROUPS */
