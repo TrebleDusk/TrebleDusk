@@ -341,7 +341,7 @@ body{
 <!-- Loading screen -->
 <div id="loader">
   <h1>TREBLE DUSK</h1>
-  <p>7.0 · Annual Music Festival</p>
+  <p>7.0 · Music Club Flagship</p>
   <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
 </div>
 
@@ -351,7 +351,7 @@ body{
 <!-- Top-left badge -->
 <div id="badge">
   <span id="badge-name">TREBLE DUSK</span>
-  <span id="badge-sub">7.0 · Festival</span>
+  <span id="badge-sub">7.0 · Music Club Flagship</span>
 </div>
 
 <!-- Hint pill -->
@@ -958,7 +958,7 @@ Object.entries(dirEls).forEach(([dir, el])=>{
 ───────────────────────────────────────── */
 
 const song = document.getElementById('song')
-song.volume = 0.08  // quiet baseline
+song.volume = 0.10  // quiet baseline
 
 // Start on first user gesture (required by browsers)
 let audioStarted = false
@@ -972,10 +972,10 @@ document.addEventListener('touchstart', startAudio, {once:true})
 document.addEventListener('mousedown', startAudio, {once:true})
 
 // Volume range constants
-const VOL_MIN  = 0.08   // far away
-const VOL_MAX  = 0.95   // right at stage
+const VOL_MIN  = 0.10   // far away
+const VOL_MAX  = 0.50   // right at stage
 const VOL_NEAR = 6      // full volume within this distance
-const VOL_FAR  = 28     // silent beyond this distance
+const VOL_FAR  = 28     // quiet beyond this distance
 
 function updateVolume(){
   // Find closest station distance
