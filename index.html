@@ -1706,32 +1706,6 @@ if(!isMobile){
   renderer.domElement.style.filter = 'brightness(1.05) contrast(1.02)'
 }
 
-/* TAP TO UNMUTE — fallback shown only on mobile if audio hasn't started after 3s */
-if(isMobile){
-  const muteBtn = document.createElement('div')
-  muteBtn.id = 'mute-btn'
-  muteBtn.innerHTML = '🔊 Tap to enable music'
-  muteBtn.style.cssText = `
-    position:fixed; bottom:210px; left:50%; transform:translateX(-50%);
-    background:rgba(255,122,0,0.9); color:#fff;
-    font-family:'Outfit',sans-serif; font-size:13px; font-weight:600;
-    letter-spacing:0.15em; text-transform:uppercase;
-    padding:10px 22px; border-radius:40px; z-index:50;
-    cursor:pointer; -webkit-tap-highlight-color:transparent;
-    box-shadow:0 4px 20px rgba(255,122,0,0.5);
-  `
-  document.body.appendChild(muteBtn)
-
-  muteBtn.addEventListener('touchstart', e=>{
-    e.preventDefault()
-    startAudio()
-    muteBtn.style.display = 'none'
-  }, {passive:false})
-
-  // Hide after 8 seconds regardless, or when audio starts
-  setTimeout(()=>{ muteBtn.style.display='none' }, 8000)
-}
-
 /* SHADOWS ON STAGE GROUPS */
 STATIONS.forEach(s=>{
   s.group.traverse(c=>{
