@@ -509,21 +509,65 @@ scene.add(groundBounce)
 
 /* PLANETS */
 
-function createPlanet(size,color,x,y,z){
-const seg = isMobile ? 10 : 32
-const planet=new THREE.Mesh(
-new THREE.SphereGeometry(size,seg,seg),
-new THREE.MeshBasicMaterial({color:color})
-)
+function createPlanet(size, color, glowColor, x, y, z, hasRing){
+  const seg = isMobile ? 10 : 32
+  const group = new THREE.Group()
 
-planet.position.set(x,y,z)
-scene.add(planet)
+  // Planet sphere
+  const planet = new THREE.Mesh(
+    new THREE.SphereGeometry(size, seg, seg),
+    new THREE.MeshStandardMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.18,
+      roughness: 0.8,
+      metalness: 0.1
+    })
+  )
+  group.add(planet)
 
+  // Atmospheric glow halo (billboard ring slightly larger)
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(size * 1.18, isMobile?6:16, isMobile?6:16),
+    new THREE.MeshBasicMaterial({
+      color: glowColor,
+      transparent: true,
+      opacity: 0.07,
+      side: THREE.BackSide,
+      depthWrite: false
+    })
+  )
+  group.add(halo)
+
+  // Saturn-style ring on some planets
+  if(hasRing){
+    const ringGeo = new THREE.RingGeometry(size*1.4, size*2.2, isMobile?16:40)
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: glowColor,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    })
+    const ring = new THREE.Mesh(ringGeo, ringMat)
+    ring.rotation.x = Math.PI * 0.42
+    ring.rotation.z = Math.PI * 0.1
+    group.add(ring)
+  }
+
+  group.position.set(x, y, z)
+  scene.add(group)
+  return group
 }
 
-createPlanet(40,0xff6622,-600,200,-900)
-createPlanet(30,0x2266cc,700,300,-1000)
-createPlanet(35,0x8844dd,500,120,-800)
+// Planets positioned in the sky ahead — visible from starting camera angle
+// Camera looks toward z=-46, y=4. Planets need to be at high y, moderate z, moderate x
+createPlanet(42, 0xff5500, 0xff8800,  -80, 120, -300, false)  // orange giant — upper left sky
+createPlanet(28, 0x1144aa, 0x3388ff,   90, 100, -280, false)  // blue ice — upper right
+createPlanet(36, 0x7722cc, 0xcc44ff,  -50,  80, -220, true)   // ringed purple — centre-left
+createPlanet(14, 0x116655, 0x22ffcc,   60,  55, -180, false)  // small teal — mid right
+createPlanet(18, 0xaaaa44, 0xffffaa, -120,  65, -250, false)  // pale yellow — far left mid
+createPlanet( 9, 0xcc2200, 0xff4400,   30, 140, -320, false)  // red dwarf — high centre
 
 /* GROUND */
 
@@ -860,41 +904,112 @@ function buildStage(cx, cz, themeColor, themeColorDim){
     }
   })
 
-  // Drum kit
-  const drumBody = cyl(1.2,1.2,0.9, isMobile?8:20, mat('std',{color:0xffffff, metalness:0.3, roughness:0.5}))
-  drumBody.position.set(0,1.55,0)
+  // Drum kit — glowing pearl finish  (platform top = 1.2)
+  const drumBody = cyl(1.2,1.2,0.9, isMobile?8:24, mat('std',{color:0xeef5ff, emissive:0x8899ff, emissiveIntensity:0.3, metalness:0.4, roughness:0.3}))
+  drumBody.position.set(0, 1.75, 0)
   g.add(drumBody)
 
-  // Drum rim
-  const drumRim = cyl(1.25,1.25,0.1,20, mat('basic',{color:themeColor}))
-  drumRim.position.set(0,2.05,0)
+  // Drum rim glowing in theme colour
+  const drumRim = cyl(1.28,1.28,0.12,24, mat('std',{color:themeColor, emissive:themeColor, emissiveIntensity:1.2, metalness:0.9}))
+  drumRim.position.set(0, 2.26, 0)
   g.add(drumRim)
 
-  // Snare
-  const snare = cyl(0.55,0.55,0.5,12, mat('std',{color:0xdddddd, metalness:0.6}))
-  snare.position.set(-1.2,1.5,-0.5)
-  g.add(snare)
+  // Second drum (floor tom)
+  const floorTom = cyl(0.8,0.8,0.7,16, mat('std',{color:0xeef5ff, emissive:0x6677ff, emissiveIntensity:0.2, metalness:0.3}))
+  floorTom.position.set(1.6, 1.55, -0.3)
+  g.add(floorTom)
+  const floorTomRim = cyl(0.83,0.83,0.1,16, mat('std',{color:themeColor, emissive:themeColor, emissiveIntensity:1.0}))
+  floorTomRim.position.set(1.6, 1.96, -0.3)
+  g.add(floorTomRim)
 
-  // Cymbals
-  ;[[-1.8,2.8,-0.8],[1.8,3.2,-0.5],[0,3.5,0.4]].forEach(([cx2,cy,cz2])=>{
-    const cymbalPlate = cyl(0.7,0.7,0.06,12, mat('basic',{color:0xddaa00}))
-    cymbalPlate.position.set(cx2,cy,cz2)
+  // Snare — brushed metal with glow rim
+  const snare = cyl(0.55,0.55,0.5,16, mat('std',{color:0xccddee, emissive:0x334455, emissiveIntensity:0.4, metalness:0.9, roughness:0.15}))
+  snare.position.set(-1.2, 1.7, -0.5)
+  g.add(snare)
+  const snareRim = cyl(0.58,0.58,0.08,16, mat('std',{color:0xffffff, emissive:0xaabbff, emissiveIntensity:0.8}))
+  snareRim.position.set(-1.2, 1.96, -0.5)
+  g.add(snareRim)
+
+  // Cymbals — y raised by 1.2 from original
+  ;[[-1.8, 4.0, -0.8],[1.8, 4.4, -0.5],[0, 4.7, 0.4]].forEach(([cx2,cy,cz2])=>{
+    const cymbalPlate = cyl(0.75,0.75,0.06,16, mat('std',{color:0xddaa00, emissive:0xffcc44, emissiveIntensity:0.5, metalness:1.0, roughness:0.1}))
+    cymbalPlate.position.set(cx2, cy, cz2)
     g.add(cymbalPlate)
-    const cymStand = cyl(0.03,0.03,cy,6, mat('basic',{color:0x666666}))
-    cymStand.position.set(cx2,cy/2,cz2)
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.12,8,8), mat('std',{color:0xffdd55, emissive:0xffaa00, emissiveIntensity:0.8}))
+    dome.position.set(cx2, cy+0.07, cz2)
+    g.add(dome)
+    const cymStand = cyl(0.03,0.03, cy-1.2, 6, mat('std',{color:0x888888, metalness:0.8}))
+    cymStand.position.set(cx2, 1.2+(cy-1.2)/2, cz2)
     g.add(cymStand)
   })
 
-  // Band members (3 stylised figures)
+  // Band members — feet on platform surface (y=1.2)
+  const stageY = 1.2
   ;[[-3,0,1],[0,0,0.5],[3,0,1]].forEach(([px,py,pz], idx)=>{
-    const colors=[0xff3344,0xffffff,0x44ff88]
-    const figMat = mat('std',{color:colors[idx], emissive:colors[idx], emissiveIntensity:0.1})
-    const torso = box(0.7,1.4,0.5, figMat)
-    torso.position.set(px,py+1.9,pz)
+    const outfitColors = [0xff2244, 0x00eeff, 0x44ff88]
+    const skinColor    = 0xffccaa
+    const oc = outfitColors[idx]
+    const base = stageY + py
+
+    // Legs
+    ;[-0.18, 0.18].forEach(lx=>{
+      const leg = box(0.22,0.8,0.22, mat('std',{color:oc, emissive:oc, emissiveIntensity:0.15}))
+      leg.position.set(px+lx, base+0.4, pz)
+      g.add(leg)
+    })
+
+    // Torso
+    const torso = box(0.65,0.9,0.38, mat('std',{color:oc, emissive:oc, emissiveIntensity:0.25}))
+    torso.position.set(px, base+1.5, pz)
     g.add(torso)
-    const figHead = new THREE.Mesh(new THREE.SphereGeometry(0.32,8,8), figMat)
-    figHead.position.set(px,py+3.0,pz)
+
+    // Arms
+    ;[-0.42, 0.42].forEach(ax=>{
+      const arm = box(0.18,0.75,0.18, mat('std',{color:oc, emissive:oc, emissiveIntensity:0.18}))
+      arm.position.set(px+ax, base+1.45, pz)
+      g.add(arm)
+    })
+
+    // Neck
+    const neck = cyl(0.1,0.1,0.2,8, mat('std',{color:skinColor}))
+    neck.position.set(px, base+2.05, pz)
+    g.add(neck)
+
+    // Head
+    const figHead = new THREE.Mesh(new THREE.SphereGeometry(0.3,10,10), mat('std',{color:skinColor, roughness:0.8}))
+    figHead.position.set(px, base+2.45, pz)
     g.add(figHead)
+
+    // Hair
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.32,10,6,[0,Math.PI*2,0,Math.PI*0.55]), mat('basic',{color:0x111111}))
+    hair.position.set(px, base+2.55, pz)
+    g.add(hair)
+
+    // Glow halo around performer (desktop only)
+    if(!isMobile){
+      const perf = new THREE.PointLight(oc, 1.2, 5)
+      perf.position.set(px, base+2, pz)
+      g.add(perf)
+    }
+
+    // Guitar / mic prop
+    if(idx === 0 || idx === 2){
+      const gBody = box(0.55,1.0,0.12, mat('std',{color:idx===0?0xff2244:0x44ff88, emissive:idx===0?0xff0022:0x00ff44, emissiveIntensity:0.4, metalness:0.5}))
+      gBody.position.set(px+(idx===0?0.3:-0.3), base+1.4, pz+0.25)
+      gBody.rotation.z = idx===0 ? 0.3 : -0.3
+      g.add(gBody)
+      const gNeck = box(0.08,0.8,0.08, mat('std',{color:0xaa8855, metalness:0.3}))
+      gNeck.position.set(px+(idx===0?0.5:-0.5), base+2.1, pz+0.2)
+      gNeck.rotation.z = idx===0 ? 0.4 : -0.4
+      g.add(gNeck)
+    } else {
+      const micStand = cyl(0.03,0.03,1.6,6, mat('std',{color:0xaaaaaa, metalness:0.9}))
+      micStand.position.set(px, base+1.0, pz+0.3)
+      g.add(micStand)
+      const micHead = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), mat('std',{color:0xdddddd, emissive:0xffffff, emissiveIntensity:0.4, metalness:0.8}))
+      micHead.position.set(px, base+1.9, pz+0.3)
+      g.add(micHead)
+    }
   })
 
   // Stair steps up to stage (front)
@@ -1088,7 +1203,7 @@ let audioCtx = null
 let gainNode = null
 let sourceConnected = false
 let audioStarted = false
-let targetGain = 0.04
+let targetGain = 0.08
 
 function startAudio(){
   if(audioStarted) return
@@ -1097,14 +1212,13 @@ function startAudio(){
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)()
     gainNode = audioCtx.createGain()
-    gainNode.gain.value = 0.04
+    gainNode.gain.value = 0.08
     gainNode.connect(audioCtx.destination)
 
     const source = audioCtx.createMediaElementSource(song)
     source.connect(gainNode)
     sourceConnected = true
   } catch(e){
-    // Fallback to direct volume if Web Audio not available
     sourceConnected = false
   }
 
@@ -1115,9 +1229,9 @@ document.addEventListener('keydown',   startAudio, {once:true})
 document.addEventListener('touchstart', startAudio, {once:true})
 document.addEventListener('mousedown',  startAudio, {once:true})
 
-// Volume range — lower ceiling
-const VOL_MIN  = 0.03   // far away (3%)
-const VOL_MAX  = 0.14   // right at stage (14%)
+// Volume range
+const VOL_MIN  = 0.08   // far away (8%)
+const VOL_MAX  = 0.35   // right at stage (35%)
 const VOL_NEAR = 6
 const VOL_FAR  = 28
 
