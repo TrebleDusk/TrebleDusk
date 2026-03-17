@@ -453,12 +453,6 @@ body{
 </audio>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/shaders/CopyShader.js"></script>
 
 <script>
 
@@ -1204,6 +1198,32 @@ let characterFacing = 0
 function clamp(val, min, max){ return Math.max(min, Math.min(max, val)) }
 
 /* ─────────────────────────────────────────
+   VOLUMETRIC LIGHT BEAMS (desktop only)
+───────────────────────────────────────── */
+
+const beams = []
+
+if(!isMobile){
+  STATIONS.forEach(s=>{
+    ;[-4, 0, 4].forEach(ox=>{
+      const beamGeo = new THREE.ConeGeometry(2.0, 14, 10, 1, true)
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: s.color,
+        transparent: true,
+        opacity: 0.04,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+      const beam = new THREE.Mesh(beamGeo, beamMat)
+      beam.position.set(s.x + ox, 7, s.z + 1)
+      beam.rotation.x = Math.PI
+      scene.add(beam)
+      beams.push({ mesh: beam, baseX: s.x + ox, phase: ox * 0.4 })
+    })
+  })
+}
+
+/* ─────────────────────────────────────────
    ANIMATION LOOP
 ───────────────────────────────────────── */
 
@@ -1259,7 +1279,7 @@ function animate(){
 
   checkProximity()
 
-  // Animate volumetric beams — slow sweep side to side
+  // Sweep volumetric beams
   if(beams.length){
     const bt = Date.now() * 0.0006
     beams.forEach(b=>{
@@ -1276,9 +1296,8 @@ function animate(){
     if(p.position.y<-5){ scene.remove(p); fireworks.splice(i,1) }
   }
 
-  // Render — use bloom composer on desktop, plain render on mobile
-  if(composer) composer.render()
-  else renderer.render(scene,camera)
+  // Render
+  renderer.render(scene,camera)
 }
 
 animate()
@@ -1287,7 +1306,6 @@ window.addEventListener('resize',()=>{
   camera.aspect=window.innerWidth/window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth,window.innerHeight)
-  if(composer) composer.setSize(window.innerWidth,window.innerHeight)
 })
 
 // ── LOADER BOOT ──
@@ -1299,57 +1317,12 @@ setTimeout(()=>{
   setTimeout(()=>{ loader.style.display='none' }, 650)
 }, 1400)
 
-/* ─────────────────────────────────────────
-   VOLUMETRIC LIGHT BEAMS (desktop only)
-───────────────────────────────────────── */
-
-const beams = []
-
+/* BLOOM — CSS filter on canvas */
 if(!isMobile){
-  STATIONS.forEach(s=>{
-    ;[-4, 0, 4].forEach(ox=>{
-      const beamGeo = new THREE.ConeGeometry(2.0, 14, 10, 1, true)
-      const beamMat = new THREE.MeshBasicMaterial({
-        color: s.color,
-        transparent: true,
-        opacity: 0.04,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      })
-      const beam = new THREE.Mesh(beamGeo, beamMat)
-      beam.position.set(s.x + ox, 7, s.z + 1)
-      beam.rotation.x = Math.PI  // wide end faces down
-      scene.add(beam)
-      beams.push({ mesh: beam, baseX: s.x + ox, baseZ: s.z + 1, phase: ox * 0.4 })
-    })
-  })
+  renderer.domElement.style.filter = 'brightness(1.05) contrast(1.02)'
 }
 
-/* ─────────────────────────────────────────
-   BLOOM POST-PROCESSING (desktop only)
-───────────────────────────────────────── */
-
-let composer = null
-
-if(!isMobile){
-  try {
-    const renderPass = new THREE.RenderPass(scene, camera)
-    const bloomPass  = new THREE.UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.65,  // strength
-      0.5,   // radius
-      0.52   // threshold
-    )
-    composer = new THREE.EffectComposer(renderer)
-    composer.addPass(renderPass)
-    composer.addPass(bloomPass)
-  } catch(e){ composer = null }
-}
-
-/* ─────────────────────────────────────────
-   SHADOWS ON STAGE GROUPS (desktop only)
-───────────────────────────────────────── */
-
+/* SHADOWS ON STAGE GROUPS (desktop only) */
 if(!isMobile){
   STATIONS.forEach(s=>{
     s.group.traverse(c=>{
@@ -1358,10 +1331,7 @@ if(!isMobile){
   })
 }
 
-/* ─────────────────────────────────────────
-   COUNTDOWN TIMER
-───────────────────────────────────────── */
-
+/* COUNTDOWN TIMER */
 function updateCountdown(){
   const eventStart = new Date('2026-04-01T18:00:00')
   const eventEnd   = new Date('2026-04-01T21:00:00')
@@ -1381,7 +1351,6 @@ function updateCountdown(){
       label.textContent   = 'Event ended'
       el.textContent      = 'SEE YOU NEXT TIME'
       el.style.fontSize   = '13px'
-      el.style.letterSpacing = '0.05em'
     }
     return
   }
