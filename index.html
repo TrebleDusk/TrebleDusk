@@ -98,7 +98,26 @@ body{
   white-space:nowrap;
 }
 
-/* ── D-PAD ── */
+/* ── INSTRUCTION PILL ── */
+#instruction{
+  position:absolute;
+  top:54px;
+  left:50%;
+  transform:translateX(-50%);
+  color:var(--orange);
+  font-size:11px;
+  font-family:'Outfit', sans-serif;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  z-index:10;
+  background:rgba(255,122,0,0.08);
+  border:1px solid rgba(255,122,0,0.2);
+  padding:6px 16px;
+  border-radius:40px;
+  backdrop-filter:blur(12px);
+  white-space:nowrap;
+  transition:opacity 0.5s ease;
+}
 #controls-hud{
   position:absolute;
   bottom:28px;
@@ -333,6 +352,39 @@ body{
   text-transform:uppercase;
   color:var(--orange);
 }
+/* ── COUNTDOWN TIMER (top-right) ── */
+#countdown{
+  position:absolute;
+  top:18px;
+  right:20px;
+  z-index:10;
+  text-align:right;
+  line-height:1;
+}
+#countdown-label{
+  font-family:'Outfit', sans-serif;
+  font-size:9px;
+  font-weight:600;
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  color:var(--orange);
+  margin-bottom:4px;
+}
+#countdown-time{
+  font-family:'Bebas Neue', sans-serif;
+  font-size:clamp(22px,5vw,32px);
+  color:#fff;
+  letter-spacing:0.06em;
+  text-shadow:0 0 20px var(--orange-glow);
+}
+#countdown-date{
+  font-family:'Outfit', sans-serif;
+  font-size:9px;
+  font-weight:300;
+  letter-spacing:0.15em;
+  color:var(--white-dim);
+  margin-top:2px;
+}
 </style>
 </head>
 
@@ -348,6 +400,13 @@ body{
 <!-- Vignette overlay -->
 <div id="overlay"></div>
 
+<!-- Countdown timer -->
+<div id="countdown">
+  <div id="countdown-label">Event starts in</div>
+  <div id="countdown-time">--:--:--</div>
+  <div id="countdown-date">1 Apr 2026 · 6:00 PM</div>
+</div>
+
 <!-- Top-left badge -->
 <div id="badge">
   <span id="badge-name">TREBLE DUSK</span>
@@ -356,6 +415,9 @@ body{
 
 <!-- Hint pill -->
 <div id="hint">Move with WASD or tap the d-pad</div>
+
+<!-- Instruction pill -->
+<div id="instruction">Register near a stage to secure your spot</div>
 
 <!-- Station proximity popup -->
 <div id="station-popup">
@@ -391,6 +453,12 @@ body{
 </audio>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/shaders/CopyShader.js"></script>
 
 <script>
 
@@ -418,8 +486,9 @@ camera.position.set(0,4,12)
 
 const renderer=new THREE.WebGLRenderer({antialias: !isMobile})
 renderer.setSize(window.innerWidth,window.innerHeight)
-// Cap at 1x on mobile — this alone can double framerate on high-DPI phones
 renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio,1.5))
+renderer.shadowMap.enabled = !isMobile
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
 document.body.appendChild(renderer.domElement)
 
 /* LIGHTING */
@@ -428,6 +497,15 @@ scene.add(new THREE.AmbientLight(0x1a1a3a, 1.2))
 
 const moonLight=new THREE.DirectionalLight(0xb0c4ff, 1.1)
 moonLight.position.set(20,40,10)
+moonLight.castShadow = !isMobile
+moonLight.shadow.mapSize.width  = 1024
+moonLight.shadow.mapSize.height = 1024
+moonLight.shadow.camera.near = 1
+moonLight.shadow.camera.far  = 200
+moonLight.shadow.camera.left = -60
+moonLight.shadow.camera.right = 60
+moonLight.shadow.camera.top = 60
+moonLight.shadow.camera.bottom = -60
 scene.add(moonLight)
 
 // Warm ground bounce light
@@ -461,8 +539,8 @@ isMobile
   ? new THREE.MeshBasicMaterial({color:0x0a0a1e})
   : new THREE.MeshStandardMaterial({color:0x0a0a1e})
 )
-
 ground.rotation.x=-Math.PI/2
+ground.receiveShadow = !isMobile
 scene.add(ground)
 
 /* PATH — centre + two branches */
@@ -591,6 +669,9 @@ const leftLeg=limb(.3,1,-.25,.4)
 const rightLeg=limb(.3,1,.25,.4)
 
 character.add(body,head,leftArm,rightArm,leftLeg,rightLeg)
+if(!isMobile){
+  character.traverse(c=>{ if(c.isMesh){ c.castShadow=true } })
+}
 scene.add(character)
 
 /* ─────────────────────────────────────────
@@ -700,6 +781,55 @@ function buildStage(cx, cz, themeColor, themeColorDim){
   trussLED.position.set(0,10.1,-3.5)
   g.add(trussLED)
 
+  // ── LED LETTER SIGN "TREBLE DUSK" above truss ──
+  // Each letter is built from small box segments in the theme colour
+  const LEDmat = mat('basic',{color:themeColor})
+  const ls = 0.28   // segment size
+  const lg = 0.08   // gap between segments
+  const lh = ls*2+lg // letter height unit
+
+  // Define each letter as [col, row] filled cells on a 3-wide x 5-tall grid
+  const letters = {
+    T: [[0,4],[1,4],[2,4],[1,3],[1,2],[1,1],[1,0]],
+    R: [[0,4],[0,3],[0,2],[0,1],[0,0],[1,4],[2,3],[1,2],[2,1],[2,0]],
+    E: [[0,4],[1,4],[2,4],[0,3],[0,2],[1,2],[0,1],[0,0],[1,0],[2,0]],
+    B: [[0,4],[0,3],[0,2],[0,1],[0,0],[1,4],[2,3],[1,2],[2,1],[1,0]],
+    L: [[0,4],[0,3],[0,2],[0,1],[0,0],[1,0],[2,0]],
+    ' ': [],
+    D: [[0,4],[0,3],[0,2],[0,1],[0,0],[1,4],[2,3],[2,2],[2,1],[1,0]],
+    U: [[0,4],[0,3],[0,2],[0,1],[1,0],[2,0],[2,1],[2,2],[2,3],[2,4]],
+    S: [[1,4],[2,4],[0,3],[0,2],[1,2],[2,1],[2,0],[1,0],[0,0]],  // wait, fix: 
+    K: [[0,4],[0,3],[0,2],[0,1],[0,0],[2,4],[1,3],[1,2],[2,1],[2,0]],
+  }
+  // Fix S properly
+  letters['S'] = [[0,4],[1,4],[2,4],[0,3],[0,2],[1,2],[2,2],[2,1],[0,0],[1,0],[2,0]]
+
+  const word = 'TREBLE DUSK'
+  const cellW = ls + lg
+  const letterW = 3*cellW + lg*2   // width of one letter slot
+  const spaceW  = letterW * 0.6
+  const totalW  = [...word].reduce((acc,c)=> acc + (c===' ' ? spaceW : letterW) + lg, 0)
+
+  let curX = -totalW/2
+  const signY = 11.5   // above the truss bar
+  const signZ = -3.5
+
+  ;[...word].forEach(ch=>{
+    const charW = ch===' ' ? spaceW : letterW
+    if(ch !== ' ' && letters[ch]){
+      letters[ch].forEach(([col,row])=>{
+        const seg = box(ls, ls, ls*0.4, LEDmat)
+        seg.position.set(
+          curX + col*cellW + ls/2,
+          signY + row*cellW,
+          signZ
+        )
+        g.add(seg)
+      })
+    }
+    curX += charW + lg
+  })
+
   // Backdrop screen
   const screen = box(11,6,0.15, mat('std',{color:0x0a0a0a, emissive:themeColorDim, emissiveIntensity:0.5}))
   screen.position.set(0,5.5,-4)
@@ -791,9 +921,9 @@ function buildStage(cx, cz, themeColor, themeColorDim){
 
 // Station definitions: x, z, theme color, dim color, name, tag, desc
 const STATIONS = [
-  { x:  0, z:-46, color:0xff5500, dimColor:0x331100, name:'THE MULTIPURPOSE HALL', tag:'Hall A · Ground Floor', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
-  { x:-22, z:-32, color:0x00aaff, dimColor:0x001a33, name:'THE MULTIPURPOSE HALL', tag:'Hall B · West Wing',    desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
-  { x: 22, z:-32, color:0xcc00ff, dimColor:0x1a0033, name:'THE MULTIPURPOSE HALL', tag:'Hall C · East Wing',    desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x:  0, z:-46, color:0xff5500, dimColor:0x331100, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x:-22, z:-32, color:0x00aaff, dimColor:0x001a33, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x: 22, z:-32, color:0xcc00ff, dimColor:0x1a0033, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
 ]
 
 STATIONS.forEach(s=>{
@@ -954,46 +1084,68 @@ Object.entries(dirEls).forEach(([dir, el])=>{
 })
 
 /* ─────────────────────────────────────────
-   AUDIO — always playing, volume by proximity
+   AUDIO — Web Audio API for reliable mobile volume
 ───────────────────────────────────────── */
 
 const song = document.getElementById('song')
-song.volume = 0.05  // quiet baseline
 
-// Start on first user gesture (required by browsers)
+// Web Audio API — the only reliable way to control volume on mobile
+let audioCtx = null
+let gainNode = null
+let sourceConnected = false
 let audioStarted = false
+let targetGain = 0.04
+
 function startAudio(){
   if(audioStarted) return
   audioStarted = true
+
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    gainNode = audioCtx.createGain()
+    gainNode.gain.value = 0.04
+    gainNode.connect(audioCtx.destination)
+
+    const source = audioCtx.createMediaElementSource(song)
+    source.connect(gainNode)
+    sourceConnected = true
+  } catch(e){
+    // Fallback to direct volume if Web Audio not available
+    sourceConnected = false
+  }
+
   song.play().catch(()=>{})
 }
-document.addEventListener('keydown', startAudio, {once:true})
-document.addEventListener('touchstart', startAudio, {once:true})
-document.addEventListener('mousedown', startAudio, {once:true})
 
-// Volume range constants
-const VOL_MIN  = 0.05   // far away
-const VOL_MAX  = 0.25   // right at stage
-const VOL_NEAR = 6      // full volume within this distance
-const VOL_FAR  = 28     // quiet beyond this distance
+document.addEventListener('keydown',   startAudio, {once:true})
+document.addEventListener('touchstart', startAudio, {once:true})
+document.addEventListener('mousedown',  startAudio, {once:true})
+
+// Volume range — lower ceiling
+const VOL_MIN  = 0.03   // far away (3%)
+const VOL_MAX  = 0.14   // right at stage (14%)
+const VOL_NEAR = 6
+const VOL_FAR  = 28
 
 function updateVolume(){
-  // Find closest station distance
   let minDist = Infinity
   STATIONS.forEach(s=>{
     const dx = character.position.x - s.x
     const dz = character.position.z - s.z
-    const d  = Math.sqrt(dx*dx + dz*dz)
-    if(d < minDist) minDist = d
+    minDist = Math.min(minDist, Math.sqrt(dx*dx + dz*dz))
   })
 
-  // Map distance → volume (linear fade between VOL_NEAR and VOL_FAR)
   let t = 1 - (minDist - VOL_NEAR) / (VOL_FAR - VOL_NEAR)
   t = Math.max(0, Math.min(1, t))
-  const targetVol = VOL_MIN + t * (VOL_MAX - VOL_MIN)
+  targetGain = VOL_MIN + t * (VOL_MAX - VOL_MIN)
 
-  // Smooth volume transition (~10 frames)
-  song.volume += (targetVol - song.volume) * 0.06
+  if(sourceConnected && gainNode){
+    // Web Audio API — works reliably on mobile
+    gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.3)
+  } else {
+    // Fallback
+    song.volume += (targetGain - song.volume) * 0.06
+  }
 }
 
 /* ─────────────────────────────────────────
@@ -1107,6 +1259,15 @@ function animate(){
 
   checkProximity()
 
+  // Animate volumetric beams — slow sweep side to side
+  if(beams.length){
+    const bt = Date.now() * 0.0006
+    beams.forEach(b=>{
+      b.mesh.position.x = b.baseX + Math.sin(bt + b.phase) * 2.5
+      b.mesh.rotation.z = Math.sin(bt + b.phase) * 0.18
+    })
+  }
+
   // Fireworks
   for(let i=fireworks.length-1;i>=0;i--){
     const p=fireworks[i]
@@ -1115,15 +1276,18 @@ function animate(){
     if(p.position.y<-5){ scene.remove(p); fireworks.splice(i,1) }
   }
 
-  renderer.render(scene,camera)
+  // Render — use bloom composer on desktop, plain render on mobile
+  if(composer) composer.render()
+  else renderer.render(scene,camera)
 }
 
 animate()
 
 window.addEventListener('resize',()=>{
-camera.aspect=window.innerWidth/window.innerHeight
-camera.updateProjectionMatrix()
-renderer.setSize(window.innerWidth,window.innerHeight)
+  camera.aspect=window.innerWidth/window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth,window.innerHeight)
+  if(composer) composer.setSize(window.innerWidth,window.innerHeight)
 })
 
 // ── LOADER BOOT ──
@@ -1134,6 +1298,106 @@ setTimeout(()=>{
   loader.style.opacity = '0'
   setTimeout(()=>{ loader.style.display='none' }, 650)
 }, 1400)
+
+/* ─────────────────────────────────────────
+   VOLUMETRIC LIGHT BEAMS (desktop only)
+───────────────────────────────────────── */
+
+const beams = []
+
+if(!isMobile){
+  STATIONS.forEach(s=>{
+    ;[-4, 0, 4].forEach(ox=>{
+      const beamGeo = new THREE.ConeGeometry(2.0, 14, 10, 1, true)
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: s.color,
+        transparent: true,
+        opacity: 0.04,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+      const beam = new THREE.Mesh(beamGeo, beamMat)
+      beam.position.set(s.x + ox, 7, s.z + 1)
+      beam.rotation.x = Math.PI  // wide end faces down
+      scene.add(beam)
+      beams.push({ mesh: beam, baseX: s.x + ox, baseZ: s.z + 1, phase: ox * 0.4 })
+    })
+  })
+}
+
+/* ─────────────────────────────────────────
+   BLOOM POST-PROCESSING (desktop only)
+───────────────────────────────────────── */
+
+let composer = null
+
+if(!isMobile){
+  try {
+    const renderPass = new THREE.RenderPass(scene, camera)
+    const bloomPass  = new THREE.UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.65,  // strength
+      0.5,   // radius
+      0.52   // threshold
+    )
+    composer = new THREE.EffectComposer(renderer)
+    composer.addPass(renderPass)
+    composer.addPass(bloomPass)
+  } catch(e){ composer = null }
+}
+
+/* ─────────────────────────────────────────
+   SHADOWS ON STAGE GROUPS (desktop only)
+───────────────────────────────────────── */
+
+if(!isMobile){
+  STATIONS.forEach(s=>{
+    s.group.traverse(c=>{
+      if(c.isMesh){ c.castShadow = true; c.receiveShadow = true }
+    })
+  })
+}
+
+/* ─────────────────────────────────────────
+   COUNTDOWN TIMER
+───────────────────────────────────────── */
+
+function updateCountdown(){
+  const eventStart = new Date('2026-04-01T18:00:00')
+  const eventEnd   = new Date('2026-04-01T21:00:00')
+  const now        = new Date()
+  const diff       = eventStart - now
+
+  const el    = document.getElementById('countdown-time')
+  const label = document.getElementById('countdown-label')
+
+  if(diff <= 0){
+    if(now < eventEnd){
+      label.textContent = 'Event is live'
+      el.textContent    = 'NOW'
+      el.style.color    = '#ff7a00'
+      el.style.textShadow = '0 0 30px rgba(255,122,0,0.9)'
+    } else {
+      label.textContent   = 'Event ended'
+      el.textContent      = 'SEE YOU NEXT TIME'
+      el.style.fontSize   = '13px'
+      el.style.letterSpacing = '0.05em'
+    }
+    return
+  }
+
+  const days = Math.floor(diff / 86400000)
+  const hrs  = Math.floor((diff % 86400000) / 3600000)
+  const mins = Math.floor((diff % 3600000)  / 60000)
+  const secs = Math.floor((diff % 60000)    / 1000)
+
+  el.textContent = days > 0
+    ? `${days}d  ${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`
+    : `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`
+}
+
+updateCountdown()
+setInterval(updateCountdown, 1000)
 
 </script>
 
