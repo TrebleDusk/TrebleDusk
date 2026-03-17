@@ -488,9 +488,11 @@ fireworks.push(p)
 
 /* MOVEMENT */
 
-let intro=true
+let intro=false
 let moving=false
 let dancing=false
+  
+const clock = new THREE.Clock()
 let introTime=0
 const stopZ=-32
 
@@ -504,6 +506,8 @@ this.style.display="none"
 function animate(){
 
 requestAnimationFrame(animate)
+
+const delta = clock.getDelta()
 
 stars.rotation.y+=0.0002
 
@@ -521,8 +525,8 @@ if(moving){
 
 if(character.position.z>stopZ){
 
-character.position.z-=.09
-camera.position.z-=.09
+character.position.z -= 5 * delta
+camera.position.z -= 5 * delta
 
 const walk=Math.sin(Date.now()*0.01)
 
