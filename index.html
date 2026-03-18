@@ -733,18 +733,18 @@ const pathMat = isMobile
   ? new THREE.MeshBasicMaterial({color:0x18182e})
   : new THREE.MeshStandardMaterial({color:0x18182e, roughness:1})
 
-const pathMain=new THREE.Mesh(new THREE.PlaneGeometry(7,60), pathMat)
-pathMain.rotation.x=-Math.PI/2; pathMain.position.set(0,0.01,-22); scene.add(pathMain)
+const pathMain=new THREE.Mesh(new THREE.PlaneGeometry(7,70), pathMat)
+pathMain.rotation.x=-Math.PI/2; pathMain.position.set(0,0.01,-28); scene.add(pathMain)
 
-// Left branch to Blue Tent
-const pathLeft=new THREE.Mesh(new THREE.PlaneGeometry(5,30), pathMat)
-pathLeft.rotation.x=-Math.PI/2; pathLeft.rotation.z=0.55
-pathLeft.position.set(-11,0.01,-30); scene.add(pathLeft)
+// Left branch to Blue Stage
+const pathLeft=new THREE.Mesh(new THREE.PlaneGeometry(6,45), pathMat)
+pathLeft.rotation.x=-Math.PI/2; pathLeft.rotation.z=0.65
+pathLeft.position.set(-20,0.01,-34); scene.add(pathLeft)
 
-// Right branch to Neon Lounge
-const pathRight=new THREE.Mesh(new THREE.PlaneGeometry(5,30), pathMat)
-pathRight.rotation.x=-Math.PI/2; pathRight.rotation.z=-0.55
-pathRight.position.set(11,0.01,-30); scene.add(pathRight)
+// Right branch to Purple Stage
+const pathRight=new THREE.Mesh(new THREE.PlaneGeometry(6,45), pathMat)
+pathRight.rotation.x=-Math.PI/2; pathRight.rotation.z=-0.65
+pathRight.position.set(20,0.01,-34); scene.add(pathRight)
 
 /* WALKWAY LAMPS */
 
@@ -881,24 +881,24 @@ function cyl(rt,rb,h,s,m){ return new THREE.Mesh(new THREE.CylinderGeometry(rt,r
 // Main building body
 const hallMat = mat('std',{color:0x110d1a, emissive:0x200010, emissiveIntensity:0.3, metalness:0.5, roughness:0.6})
 const hall = box(28,16,14, hallMat)
-hall.position.set(0,8,-58)
+hall.position.set(0,8,-74)
 scene.add(hall)
 
 // Roof ridge
 const roof = box(30,1.5,16, mat('std',{color:0x0a0814, metalness:0.7, roughness:0.3}))
-roof.position.set(0,16.6,-58)
+roof.position.set(0,16.6,-74)
 scene.add(roof)
 
-// Facade neon strips (horizontal glows across building front)
+// Facade neon strips
 ;[3,7,11,15].forEach(y=>{
   const strip = box(26,0.18,0.2, mat('basic',{color:0xff6600}))
-  strip.position.set(0,y,-51.1)
+  strip.position.set(0,y,-67.1)
   scene.add(strip)
 })
 
 // Building sign box
 const signBoard = box(14,2.8,0.3, mat('std',{color:0x0d0820, emissive:0xff5500, emissiveIntensity:0.15}))
-signBoard.position.set(0,13.5,-51)
+signBoard.position.set(0,13.5,-67)
 scene.add(signBoard)
 
 if(!isMobile){
@@ -1174,9 +1174,9 @@ function buildStage(cx, cz, themeColor, themeColorDim){
 
 // Station definitions: x, z, theme color, dim color, name, tag, desc
 const STATIONS = [
-  { x:  0, z:-46, color:0xff5500, dimColor:0x331100, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
-  { x:-22, z:-32, color:0x00aaff, dimColor:0x001a33, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
-  { x: 22, z:-32, color:0xcc00ff, dimColor:0x1a0033, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x:  0, z:-62, color:0xff5500, dimColor:0x331100, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x:-40, z:-42, color:0x00aaff, dimColor:0x001a33, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x: 40, z:-42, color:0xcc00ff, dimColor:0x1a0033, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
 ]
 
 STATIONS.forEach(s=>{
@@ -1184,7 +1184,61 @@ STATIONS.forEach(s=>{
 })
 
 // Expand map bounds to cover side stages
-const BOUNDS = { minX:-50, maxX:50, minZ:-57, maxZ:14 }
+const BOUNDS = { minX:-60, maxX:60, minZ:-72, maxZ:14 }
+
+/* ─────────────────────────────────────────
+   FESTIVAL GROUNDS — fills the space between stages
+───────────────────────────────────────── */
+
+// ── TWO BONFIRES — one on each side of the main path ──
+function buildBonfire(x, z){
+  const ring = cyl(2.2,2.2,0.3,16, mat('std',{color:0x333333, roughness:1}))
+  ring.position.set(x,0.15,z); scene.add(ring)
+  ;[0,1,2,3].forEach(i=>{
+    const log = cyl(0.18,0.18,2.8,8, mat('std',{color:0x4a2800, roughness:1}))
+    log.rotation.y = i * Math.PI/4
+    log.rotation.z = Math.PI/2
+    log.position.set(x,0.4,z); scene.add(log)
+  })
+  const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.7,2.5,8), mat('basic',{color:0xff6600}))
+  f1.position.set(x,1.8,z); scene.add(f1)
+  const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.4,1.8,8), mat('basic',{color:0xffcc00}))
+  f2.position.set(x,2.2,z); scene.add(f2)
+  const f3 = new THREE.Mesh(new THREE.ConeGeometry(0.2,1.2,8), mat('basic',{color:0xffffff}))
+  f3.position.set(x,2.6,z); scene.add(f3)
+  if(!isMobile){
+    const fl = new THREE.PointLight(0xff6600, 4, 22)
+    fl.position.set(x,2,z); scene.add(fl)
+  }
+  return {f1, f2, f3}
+}
+
+const bonfire1 = buildBonfire(-8, -32)
+const bonfire2 = buildBonfire( 8, -32)
+
+// ── NEON ARCH GATES ──
+function buildArch(z, color){
+  ;[-3.5, 3.5].forEach(ox=>{
+    const pillar = cyl(0.2,0.2,5, 8, mat('std',{color:0x111111, metalness:0.8}))
+    pillar.position.set(ox,2.5,z); scene.add(pillar)
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3,8,8), mat('basic',{color}))
+    cap.position.set(ox,5.1,z); scene.add(cap)
+  })
+  const bar = box(7.4,0.2,0.2, mat('basic',{color}))
+  bar.position.set(0,5.1,z); scene.add(bar)
+  ;[-2.5,-1,0,1,2.5].forEach(ox=>{
+    const strip = box(0.06,0.8+Math.random()*0.6,0.06, mat('basic',{color}))
+    strip.position.set(ox,4.4,z); scene.add(strip)
+  })
+  if(!isMobile){
+    const archLight = new THREE.PointLight(color, 1.2, 14)
+    archLight.position.set(0,5,z); scene.add(archLight)
+  }
+}
+
+buildArch(-12, 0xff7a00)
+buildArch(-22, 0xff44aa)
+buildArch(-36, 0x44aaff)
 
 /* ─────────────────────────────────────────
    PILLARS (entrance gate)
@@ -1260,7 +1314,7 @@ const _dummy = new THREE.Object3D()
 
 for(let i=0;i<CROWD_COUNT;i++){
   const x=(Math.random()-0.5)*26
-  const z=-30-Math.random()*10
+  const z=-45-Math.random()*12
   crowdPositions.push({x,z})
   _dummy.position.set(x,0.6,z); _dummy.updateMatrix(); bodyInst.setMatrixAt(i,_dummy.matrix)
   _dummy.position.set(x,1.5,z); _dummy.updateMatrix(); headInst.setMatrixAt(i,_dummy.matrix)
@@ -1286,7 +1340,7 @@ function createFirework(){
   const count = isMobile ? 30 : 80
   for(let i=0;i<count;i++){
     const p=new THREE.Mesh(fwGeo, fwMats[Math.floor(Math.random()*3)])
-    p.position.set(Math.random()*40-20,20,-60)
+    p.position.set(Math.random()*40-20,20,-75)
     p.v={ x:(Math.random()-.5)*1.8, y:Math.random()*3, z:(Math.random()-.5)*1.8 }
     scene.add(p); fireworks.push(p)
   }
@@ -1426,8 +1480,8 @@ function checkProximity(){
       popupTag.textContent  = nearest.tag
       popupDesc.textContent = nearest.desc
       popup.classList.add('visible')
-      // Fireworks only at main stage (Hall A)
-      if(nearest.z < -40 && !fireworkInterval){
+      // Fireworks only at main stage
+      if(nearest.z < -55 && !fireworkInterval){
         fireworkInterval = setInterval(createFirework, 700)
       }
     } else {
@@ -1662,7 +1716,7 @@ function animate(){
   camera.lookAt(character.position.x, 2, character.position.z)
 
   // Crowd bob when near main stage
-  if(activeStation && activeStation.z < -40){
+  if(activeStation && activeStation.z < -55){
     character.position.y = Math.sin(Date.now()*0.008)*0.15
     const t = Date.now()*0.004
     for(let i=0;i<CROWD_COUNT;i++){
@@ -1681,6 +1735,14 @@ function animate(){
   updateDayNight()
   updateNPCs()
   planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed })
+
+  // Bonfire flicker
+  const flicker = 0.85 + Math.sin(Date.now()*0.012)*0.15 + Math.sin(Date.now()*0.031)*0.08
+  ;[bonfire1, bonfire2].forEach(b=>{
+    b.f1.scale.set(flicker, flicker+Math.sin(Date.now()*0.02)*0.1, flicker)
+    b.f2.scale.set(flicker*0.9, flicker, flicker*0.9)
+    b.f3.scale.set(flicker*0.7, flicker*1.1, flicker*0.7)
+  })
 
   // Sweep volumetric beams
   if(beams.length){
