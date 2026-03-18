@@ -513,16 +513,29 @@ const groundBounce = new THREE.DirectionalLight(0xff6600, 0.15)
 groundBounce.position.set(0,-10,0)
 scene.add(groundBounce)
 
-// Sky colours for each phase
-const SKY_NIGHT  = new THREE.Color(0x030414)
-const SKY_DAWN   = new THREE.Color(0x1a0a2e)
-const SKY_DAY    = new THREE.Color(0x0a1a3a)
-const SKY_DUSK   = new THREE.Color(0x1a0814)
+// Sky colours for each phase — proper visible range
+const SKY_NIGHT  = new THREE.Color(0x03050f)
+const SKY_DAWN   = new THREE.Color(0xcc6633)  // vivid orange dawn
+const SKY_DAY    = new THREE.Color(0x44aaee)  // proper bright cyan-blue sky
+const SKY_DUSK   = new THREE.Color(0xcc3311)  // deep red dusk
 
-// Day/night cycle: full cycle = 4 real minutes for visible change; start at "night"
-// t=0 night, t=0.25 dawn, t=0.5 day, t=0.75 dusk
-let dayT = 0.0   // 0..1 over full cycle
-const DAY_SPEED = isMobile ? 0.00004 : 0.00003   // speed of cycle
+// Real-time IST day/night — no simulated loop needed
+// IST = UTC+5:30. We read the current hour+minute and map to sky phase.
+function getISTDayT(){
+  const now = new Date()
+  // Convert to IST offset
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000
+  const istMs = utcMs + (5.5 * 3600000)
+  const ist = new Date(istMs)
+  const hours   = ist.getHours()
+  const minutes = ist.getMinutes()
+  const seconds = ist.getSeconds()
+  // Total seconds since midnight → 0..1 over 24 hours
+  return (hours * 3600 + minutes * 60 + seconds) / 86400
+}
+
+let dayT = getISTDayT()
+const DAY_SPEED = 0  // driven by real time, not simulated
 
 /* PLANETS — procedural canvas textures, vivid colours */
 
@@ -1342,7 +1355,7 @@ function startAudio(){
   // Create the Audio object RIGHT HERE inside the gesture — iOS requires this
   song = new Audio('song.mp3')
   song.loop = true
-  song.volume = 0.08
+  song.volume = 0.02
 
   // Play immediately — still inside the synchronous gesture call stack
   const p = song.play()
@@ -1357,10 +1370,10 @@ document.addEventListener('keydown',   startAudio, {once:true})
 document.addEventListener('mousedown', startAudio, {once:true})
 document.addEventListener('touchend',  startAudio, {once:true})
 
-const VOL_MIN  = 0.08
-const VOL_MAX  = 0.35
-const VOL_NEAR = 6
-const VOL_FAR  = 28
+const VOL_MIN  = 0.02   // very quiet when far away
+const VOL_MAX  = 0.35   // loud when right at stage
+const VOL_NEAR = 5      // reach full volume within 5 units
+const VOL_FAR  = 18     // completely faded beyond 18 units
 
 let _volFrame = 0
 function updateVolume(){
@@ -1468,34 +1481,40 @@ if(!isMobile){
 // Pre-allocated colours
 const _skyCol   = new THREE.Color()
 const _nightCol = new THREE.Color(0x1a1a3a)
-const _dayCol   = new THREE.Color(0x556677)
+const _dayCol   = new THREE.Color(0xbbddff)  // bright white-blue daylight
 scene.background = new THREE.Color(0x030414)
 
 function updateDayNight(){
-  dayT = (dayT + DAY_SPEED) % 1.0
+  dayT = getISTDayT()
 
-  const sunAngle = dayT * Math.PI * 2
+  // sunAngle: 0 at midnight, π at noon — so sin(sunAngle) peaks at noon
+  // t=0 midnight → angle=−π/2 (below horizon)
+  // t=0.25 (6am) → angle=0 (rising)
+  // t=0.5 (noon) → angle=π/2 (peak)
+  // t=0.75 (6pm) → angle=π (setting)
+  const sunAngle = (dayT - 0.25) * Math.PI * 2
   sunLight.position.set(Math.cos(sunAngle)*80, Math.sin(sunAngle)*60, 30)
   moonLight.position.set(-Math.cos(sunAngle)*80, -Math.sin(sunAngle)*60+20, 10)
 
   const sunAbove = Math.max(0, Math.sin(sunAngle))
-  sunLight.intensity  = sunAbove * 1.8
+  sunLight.intensity  = sunAbove * 8.0   // very bright sun
   moonLight.intensity = 0.7 + Math.max(0, -Math.sin(sunAngle)) * 0.8
 
-  const dawn     = Math.max(0, 1 - Math.abs(dayT - 0.25) * 8)
-  const dusk     = Math.max(0, 1 - Math.abs(dayT - 0.75) * 8)
+  // Dawn: 5am–7am (t ≈ 0.208–0.292), Dusk: 5pm–7pm (t ≈ 0.708–0.792)
+  const dawn     = Math.max(0, 1 - Math.abs(dayT - 0.25) * 12)
+  const dusk     = Math.max(0, 1 - Math.abs(dayT - 0.75) * 12)
   const day      = sunAbove
   const nightAmt = 1 - day
 
   _skyCol.copy(SKY_NIGHT)
   if(dawn > 0.01) _skyCol.lerp(SKY_DAWN, dawn)
-  if(day  > 0.01) _skyCol.lerp(SKY_DAY,  day * 0.6)
+  if(day  > 0.01) _skyCol.lerp(SKY_DAY,  day)       // full blend, not 0.6
   if(dusk > 0.01) _skyCol.lerp(SKY_DUSK, dusk)
   scene.background.copy(_skyCol)
   scene.fog.color.copy(_skyCol)
 
-  ambientLight.intensity = 0.9 + day * 0.9
-  ambientLight.color.lerpColors(_nightCol, _dayCol, day * 0.8)
+  ambientLight.intensity = 0.9 + day * 3.5   // very bright ambient in full daylight
+  ambientLight.color.lerpColors(_nightCol, _dayCol, day)
   sunLight.color.setHex(dawn > 0.01 || dusk > 0.01 ? 0xff8844 : 0xfff4e0)
 
   stars.material.opacity = Math.max(0.05, nightAmt * 0.9)
