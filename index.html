@@ -822,11 +822,9 @@ scene.add(ground)
 
 /* MOUNTAIN TERRAIN — single displaced geometry ring, mobile-friendly */
 ;(function(){
-  // Low segment count on mobile — 1 draw call total
-  const segs = isMobile ? 40 : 80
+  const segs = isMobile ? 24 : 60
   const geo  = new THREE.PlaneGeometry(700, 700, segs, segs)
 
-  // Simple pseudo-random noise using sin — no library needed
   function noise(x, z){
     return Math.sin(x * 0.08) * Math.cos(z * 0.07) * 0.5
          + Math.sin(x * 0.03 + 1.3) * Math.cos(z * 0.04 + 0.9) * 0.8
@@ -834,43 +832,32 @@ scene.add(ground)
   }
 
   const pos = geo.attributes.position
-  const cx = 0, cz = -25  // centre of festival grounds
+  const cx = 0, cz = -25
 
   for(let i = 0; i < pos.count; i++){
     const x = pos.getX(i)
-    const z = pos.getY(i)  // plane is flat so Y = Z before rotation
-
-    // Distance from festival centre
+    const z = pos.getY(i)
     const dx = x - cx
     const dz = z - cz
     const dist = Math.sqrt(dx*dx + dz*dz)
-
-    // Mountains only appear OUTSIDE the playable area (dist > 80)
-    // Fade in smoothly from 80→120 units, full height beyond that
     const fade = Math.max(0, Math.min(1, (dist - 80) / 40))
-
-    // Mountain height: taller further out, shaped with noise
     const baseH = Math.max(0, (dist - 80) * 0.35)
     const noiseH = noise(x, z) * 18 + 12
-    const height = fade * (baseH + noiseH * fade)
-
-    pos.setZ(i, height)
+    pos.setZ(i, fade * (baseH + noiseH * fade))
   }
 
-  geo.computeVertexNormals()
+  // Only compute normals on desktop — not needed for BasicMaterial
+  if(!isMobile) geo.computeVertexNormals()
 
   const mat = isMobile
-    ? new THREE.MeshBasicMaterial({color:0x0e1428, side:THREE.FrontSide})
-    : new THREE.MeshStandardMaterial({
-        color:0x0e1428,
-        roughness:0.95,
-        metalness:0.05,
-        side:THREE.FrontSide
-      })
+    ? new THREE.MeshBasicMaterial({color:0x0e1428})
+    : new THREE.MeshStandardMaterial({color:0x0e1428, roughness:0.95, metalness:0.05})
 
   const terrain = new THREE.Mesh(geo, mat)
   terrain.rotation.x = -Math.PI / 2
-  terrain.position.set(0, 0, -25)  // align centre with festival grounds
+  terrain.position.set(0, 0, -25)
+  terrain.matrixAutoUpdate = false   // static — never recalculate transform
+  terrain.updateMatrix()
   scene.add(terrain)
 })()
 
