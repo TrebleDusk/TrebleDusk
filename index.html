@@ -331,71 +331,70 @@ body{
 /* ── GREETER DIALOG ── */
 #greeter-dialog{
   position:absolute;
-  bottom:220px;
-  left:50%;
-  transform:translateX(-50%) translateY(16px);
+  bottom:28px;
+  left:20px;
+  transform:translateY(12px);
   z-index:25;
   opacity:0;
   pointer-events:none;
   transition:opacity 0.4s ease, transform 0.4s cubic-bezier(0.16,1,0.3,1);
-  max-width:92vw;
-  width:360px;
+  max-width:min(320px, calc(100vw - 220px));
+  width:280px;
 }
 #greeter-dialog.visible{
   opacity:1;
-  transform:translateX(-50%) translateY(0);
+  transform:translateY(0);
 }
 #greeter-inner{
-  background:rgba(4,2,22,0.82);
+  background:rgba(4,2,22,0.88);
   border:1px solid rgba(100,180,255,0.3);
   border-radius:8px;
   backdrop-filter:blur(22px);
-  box-shadow:0 0 60px rgba(80,160,255,0.12), 0 8px 32px rgba(0,0,0,0.5);
+  box-shadow:0 0 40px rgba(80,160,255,0.1), 0 4px 20px rgba(0,0,0,0.5);
   overflow:hidden;
 }
 #greeter-header{
   background:linear-gradient(90deg, rgba(0,120,255,0.25), rgba(180,0,255,0.15));
-  padding:10px 18px 8px;
+  padding:8px 14px 6px;
   border-bottom:1px solid rgba(100,180,255,0.18);
   display:flex;
   align-items:center;
-  gap:10px;
+  gap:8px;
 }
 #greeter-avatars{
   display:flex;
-  gap:-4px;
 }
 .greeter-dot{
-  width:10px; height:10px;
+  width:8px; height:8px;
   border-radius:50%;
-  border:2px solid rgba(255,255,255,0.3);
-  margin-left:-3px;
+  border:1.5px solid rgba(255,255,255,0.3);
+  margin-left:-2px;
 }
 #greeter-title-text{
   font-family:'Outfit', sans-serif;
-  font-size:10px;
+  font-size:9px;
   font-weight:600;
-  letter-spacing:0.25em;
+  letter-spacing:0.2em;
   text-transform:uppercase;
   color:rgba(120,200,255,0.9);
 }
 #greeter-body{
-  padding:16px 18px 18px;
+  padding:10px 14px 12px;
 }
 #greeter-speaker{
   font-family:'Bebas Neue', sans-serif;
-  font-size:13px;
-  letter-spacing:0.2em;
+  font-size:11px;
+  letter-spacing:0.18em;
   color:var(--orange);
-  margin-bottom:6px;
+  margin-bottom:5px;
 }
 #greeter-message{
   font-family:'Outfit', sans-serif;
-  font-size:13px;
+  font-size:11px;
   font-weight:300;
-  line-height:1.6;
-  color:rgba(255,255,255,0.88);
-  letter-spacing:0.02em;
+  line-height:1.55;
+  color:rgba(255,255,255,0.85);
+  letter-spacing:0.01em;
 }
 #badge{
   position:absolute;
@@ -1560,55 +1559,91 @@ function buildGreeter(cx, cz, opts){
     })
   }
 
-  // ── HOLOGRAM DESIGNATION TAG ──
-  // Floating panel above head
+  // ── HOLOGRAM DESIGNATION TAG — canvas texture with real text ──
   const holoGroup = new THREE.Group()
+  const holoColor = opts.holoColor || 0x00eeff
+
+  // Build canvas with actual text
+  const hc = document.createElement('canvas')
+  hc.width = 512; hc.height = 160
+  const hCtx = hc.getContext('2d')
+
+  // Background — semi-transparent hologram tint
+  const hex6 = '#' + holoColor.toString(16).padStart(6,'0')
+  hCtx.fillStyle = 'rgba(0,0,0,0)'
+  hCtx.fillRect(0,0,512,160)
+
+  // Glowing background panel
+  hCtx.fillStyle = hex6.replace('#','').length===6 ? hex6+'22' : 'rgba(0,200,255,0.12)'
+  hCtx.fillRect(4,4,504,152)
+
+  // Border
+  hCtx.strokeStyle = hex6
+  hCtx.lineWidth = 3
+  hCtx.strokeRect(4,4,504,152)
+
+  // Corner accent dots
+  ;[[4,4],[508,4],[4,156],[508,156]].forEach(([cx2,cy2])=>{
+    hCtx.beginPath()
+    hCtx.arc(cx2,cy2,7,0,Math.PI*2)
+    hCtx.fillStyle = hex6
+    hCtx.fill()
+  })
+
+  // Treble Dusk label (small, top)
+  hCtx.font = '600 22px Outfit, Arial'
+  hCtx.fillStyle = hex6
+  hCtx.textAlign = 'center'
+  hCtx.letterSpacing = '6px'
+  hCtx.fillText('TREBLE DUSK 7.0', 256, 44)
+
+  // Divider line
+  hCtx.strokeStyle = hex6
+  hCtx.globalAlpha = 0.4
+  hCtx.lineWidth = 1
+  hCtx.beginPath(); hCtx.moveTo(40,56); hCtx.lineTo(472,56); hCtx.stroke()
+  hCtx.globalAlpha = 1
+
+  // Designation text (big, centre)
+  hCtx.font = 'bold 38px Bebas Neue, Impact, Arial'
+  hCtx.fillStyle = '#ffffff'
+  hCtx.textAlign = 'center'
+  hCtx.fillText(opts.designation || 'COMMITTEE', 256, 106)
+
+  // Bottom scan-line effect
+  for(let sy=120; sy<152; sy+=4){
+    hCtx.fillStyle = `rgba(${parseInt(hex6.slice(1,3),16)},${parseInt(hex6.slice(3,5),16)},${parseInt(hex6.slice(5,7),16)},0.08)`
+    hCtx.fillRect(4,sy,504,2)
+  }
+
+  const holoTex = new THREE.CanvasTexture(hc)
   const holoPanelMat = new THREE.MeshBasicMaterial({
-    color:opts.holoColor||0x00eeff, transparent:true, opacity:0.18, side:THREE.DoubleSide
+    map: holoTex, transparent: true, opacity: 0.92,
+    side: THREE.DoubleSide, depthWrite: false
   })
-  const holoBorderMat = new THREE.MeshBasicMaterial({color:opts.holoColor||0x00eeff})
 
-  const holoPanel = box(1.6,0.42,0.02,holoPanelMat)
+  // Billboard panel sized to match canvas aspect (512:160 = 3.2:1)
+  const holoPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.56), holoPanelMat)
   holoGroup.add(holoPanel)
-  // Top border bar
-  const holoTop = box(1.62,0.035,0.025,holoBorderMat)
-  holoTop.position.y=0.21; holoGroup.add(holoTop)
-  // Bottom border bar
-  const holoBot = box(1.62,0.035,0.025,holoBorderMat)
-  holoBot.position.y=-0.21; holoGroup.add(holoBot)
-  // Side bars
-  ;[-0.81,0.81].forEach(hx=>{
-    const holoSide = box(0.035,0.42,0.025,holoBorderMat)
-    holoSide.position.x=hx; holoGroup.add(holoSide)
-  })
-  // Corner dots
-  ;[[-0.81,0.21],[0.81,0.21],[-0.81,-0.21],[0.81,-0.21]].forEach(([hx,hy])=>{
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.04,6,6),holoBorderMat)
-    dot.position.set(hx,hy,0); holoGroup.add(dot)
-  })
+
+  // Glowing border glow (thin emissive plane slightly behind)
+  const holoBorderMat = new THREE.MeshBasicMaterial({color: holoColor})
+  const glowRim = new THREE.Mesh(new THREE.PlaneGeometry(1.86, 0.62),
+    new THREE.MeshBasicMaterial({color: holoColor, transparent:true, opacity:0.15, side:THREE.DoubleSide, depthWrite:false}))
+  glowRim.position.z = -0.01
+  holoGroup.add(glowRim)
+
   // Vertical connector stem
-  const stem = box(0.025,0.4,0.025,holoBorderMat)
-  stem.position.set(0,-0.42,0); holoGroup.add(stem)
+  const stem = box(0.025,0.4,0.025, holoBorderMat)
+  stem.position.set(0,-0.48,0); holoGroup.add(stem)
 
-  // Title text blocks — simulate text with emissive boxes
-  // Name row (thicker bar = title)
-  const titleBar = box(1.1,0.09,0.03,new THREE.MeshBasicMaterial({color:0xffffff}))
-  titleBar.position.set(-0.1,0.1,0.015); holoGroup.add(titleBar)
-  // Designation row (slightly dimmer, narrower)
-  const desigBar = box(0.9,0.06,0.03,holoBorderMat)
-  desigBar.position.set(-0.15,-0.06,0.015); holoGroup.add(desigBar)
-  // Decorative dot left
-  const decDot = new THREE.Mesh(new THREE.SphereGeometry(0.03,5,5),holoBorderMat)
-  decDot.position.set(-0.72,0.08,0.015); holoGroup.add(decDot)
-
-  holoGroup.position.set(0, isF?3.55:3.7, 0)
+  holoGroup.position.set(0, isF ? 3.6 : 3.75, 0)
   g.add(holoGroup)
 
-  // Store holo for pulsing animation
-  g.userData.holoGroup = holoGroup
-  g.userData.holoBorderMat = holoBorderMat
+  g.userData.holoGroup    = holoGroup
+  g.userData.holoBorderMat= holoBorderMat
   g.userData.holoPanelMat = holoPanelMat
-  g.userData.holoColor = opts.holoColor || 0x00eeff
+  g.userData.holoColor    = holoColor
 
   g.position.set(cx, 0, cz)
   scene.add(g)
@@ -1620,30 +1655,33 @@ function buildGreeter(cx, cz, opts){
 
 const secretaryChar = buildGreeter(7, -9, {
   skin:0xc8804a, hair:0x1a0800,
-  top:0x1c2e6e, bottom:0x0e1840,        // navy formal suit
-  lapel:0x1c2e6e, accent:0xcc2233,      // red tie
+  top:0x1c2e6e, bottom:0x0e1840,
+  lapel:0x1c2e6e, accent:0xcc2233,
   isFemale:false, accessory:'lanyard',
-  eyeColor:0x3a2200, holoColor:0x4499ff
+  eyeColor:0x3a2200, holoColor:0x4499ff,
+  designation:'SECRETARY'
 })
 secretaryChar.rotation.y = 2.4   // facing toward treasurer (talking)
 
 const jointSecChar = buildGreeter(9.8, -8.5, {
   skin:0xe0aa88, hair:0x1a0500,
-  top:0x7a0038, bottom:0x3d001c,        // deep magenta formal
-  accent:0xffd700,                       // gold scarf
+  top:0x7a0038, bottom:0x3d001c,
+  accent:0xffd700,
   isFemale:true, accessory:'earrings',
   eyeColor:0x2a1500, lipColor:0xcc3355,
-  holoColor:0xff44cc, armPose:0.2
+  holoColor:0xff44cc, armPose:0.2,
+  designation:'JOINT SECRETARY'
 })
 jointSecChar.rotation.y = 3.8   // facing secretary (talking)
 
 const treasurerChar = buildGreeter(4.4, -8.8, {
   skin:0xbb6e40, hair:0x0f0505,
-  top:0x1a5230, bottom:0x0d2918,        // forest green kurta style
-  accent:0xffcc44,                       // gold hem
+  top:0x1a5230, bottom:0x0d2918,
+  accent:0xffcc44,
   isFemale:true, accessory:'glasses',
   eyeColor:0x1a1000, lipColor:0xaa3344,
-  holoColor:0x44ffaa, armPose:0.35
+  holoColor:0x44ffaa, armPose:0.35,
+  designation:'TREASURER'
 })
 treasurerChar.rotation.y = 1.0   // facing joint secretary (talking)
 
@@ -1989,101 +2027,6 @@ function updateDayNight(){
 }
 
 /* ─────────────────────────────────────────
-   NPC WANDERING ATTENDEES
-───────────────────────────────────────── */
-
-const NPC_COUNT = isMobile ? 8 : 18
-const npcs = []
-
-const npcBodyGeo = new THREE.CylinderGeometry(0.28,0.35,1.1,6)
-const npcHeadGeo = new THREE.SphereGeometry(0.22,6,6)
-const npcArmGeo  = new THREE.BoxGeometry(0.15,0.6,0.15)
-
-const NPC_COLOURS = [
-  0xff6644, 0x44aaff, 0xffcc44, 0xcc44ff,
-  0x44ffaa, 0xff4488, 0x88ff44, 0x4488ff,
-  0xffaa44, 0xaa44ff, 0x44ffcc, 0xff4444
-]
-
-for(let i=0; i<NPC_COUNT; i++){
-  const col = NPC_COLOURS[i % NPC_COLOURS.length]
-  const npcGroup = new THREE.Group()
-
-  const body = new THREE.Mesh(npcBodyGeo, new THREE.MeshStandardMaterial({
-    color:col, emissive:col, emissiveIntensity:0.12, roughness:0.8
-  }))
-  body.position.y = 0.55
-  npcGroup.add(body)
-
-  const head = new THREE.Mesh(npcHeadGeo, new THREE.MeshStandardMaterial({
-    color:0xffccaa, roughness:0.9
-  }))
-  head.position.y = 1.42
-  npcGroup.add(head)
-
-  ;[-0.38, 0.38].forEach(ax=>{
-    const arm = new THREE.Mesh(npcArmGeo, new THREE.MeshStandardMaterial({
-      color:col, emissive:col, emissiveIntensity:0.1
-    }))
-    arm.position.set(ax, 0.8, 0)
-    npcGroup.add(arm)
-  })
-
-  // Random start position scattered around the festival grounds
-  const startX = (Math.random()-0.5) * 60
-  const startZ = -5 - Math.random() * 40
-  npcGroup.position.set(startX, 0, startZ)
-
-  // Waypoints: each NPC wanders between 3–4 random points
-  const waypointCount = 3 + Math.floor(Math.random()*2)
-  const waypoints = []
-  for(let w=0; w<waypointCount; w++){
-    waypoints.push(new THREE.Vector3(
-      (Math.random()-0.5) * 55,
-      0,
-      -4 - Math.random() * 46
-    ))
-  }
-
-  npcs.push({
-    group: npcGroup,
-    waypoints,
-    wpIdx: 0,
-    speed: 0.02 + Math.random() * 0.025,
-    walkPhase: Math.random() * Math.PI * 2,
-    leftArm:  npcGroup.children[2],
-    rightArm: npcGroup.children[3],
-  })
-
-  scene.add(npcGroup)
-}
-
-function updateNPCs(){
-  const t = Date.now() * 0.008
-  npcs.forEach(npc=>{
-    const target = npc.waypoints[npc.wpIdx]
-    const dx = target.x - npc.group.position.x
-    const dz = target.z - npc.group.position.z
-    const dist = Math.sqrt(dx*dx + dz*dz)
-
-    if(dist < 0.5){
-      // Reached waypoint — pick next
-      npc.wpIdx = (npc.wpIdx + 1) % npc.waypoints.length
-    } else {
-      // Move toward waypoint
-      npc.group.position.x += (dx/dist) * npc.speed
-      npc.group.position.z += (dz/dist) * npc.speed
-      // Face movement direction
-      npc.group.rotation.y = Math.atan2(dx, dz) + Math.PI
-      // Walk animation
-      const walk = Math.sin(t * npc.speed * 40 + npc.walkPhase)
-      npc.leftArm.rotation.x  =  walk * 0.5
-      npc.rightArm.rotation.x = -walk * 0.5
-    }
-  })
-}
-
-/* ─────────────────────────────────────────
    ANIMATION LOOP
 ───────────────────────────────────────── */
 
@@ -2146,7 +2089,6 @@ function animate(){
 
   checkProximity()
   updateDayNight()
-  updateNPCs()
   planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed })
 
   // Greeter idle bob + hologram pulse + talking head turns
