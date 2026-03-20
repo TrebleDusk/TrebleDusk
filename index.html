@@ -194,7 +194,7 @@ body{
   align-items:center;
   height:100%;
   white-space:nowrap;
-  animation:tickerScroll 40s linear infinite;
+  animation:tickerScroll 12s linear infinite;
   will-change:transform;
 }
 #ticker-inner span{
@@ -984,27 +984,34 @@ if(!isMobile){
 
 const character=new THREE.Group()
 
-const charMat = isMobile
-  ? new THREE.MeshBasicMaterial({color:0x00eeff})
-  : new THREE.MeshStandardMaterial({color:0x00eeff, emissive:0x004455, emissiveIntensity:0.4})
+// Blue t-shirt #233693
+const shirtMat = isMobile
+  ? new THREE.MeshBasicMaterial({color:0x233693})
+  : new THREE.MeshStandardMaterial({color:0x233693, emissive:0x0a1540, emissiveIntensity:0.2, roughness:0.7})
 
-function limb(w,h,x,y){
-const m=new THREE.Mesh(
-new THREE.BoxGeometry(w,h,w),
-charMat
-)
-m.position.set(x,y,0)
-return m
+// Denim jeans — noticeably lighter than shirt
+const denim = isMobile
+  ? new THREE.MeshBasicMaterial({color:0x5b7fbe})
+  : new THREE.MeshStandardMaterial({color:0x5b7fbe, emissive:0x1a2a50, emissiveIntensity:0.1, roughness:0.9})
+
+// Skin tone head
+const skinMat = isMobile
+  ? new THREE.MeshBasicMaterial({color:0xc8804a})
+  : new THREE.MeshStandardMaterial({color:0xc8804a, roughness:0.85})
+
+function makeBox(w,h,mat){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,w), mat)
+  return m
 }
 
-const body=limb(.8,1.5,0,1.2)
-const head=new THREE.Mesh(new THREE.SphereGeometry(.4),charMat)
+const body=makeBox(.8,1.5,shirtMat);     body.position.set(0,1.2,0)
+const head=new THREE.Mesh(new THREE.SphereGeometry(.4),skinMat)
 head.position.y=2.2
 
-const leftArm=limb(.25,1,-.65,1.2)
-const rightArm=limb(.25,1,.65,1.2)
-const leftLeg=limb(.3,1,-.25,.4)
-const rightLeg=limb(.3,1,.25,.4)
+const leftArm=makeBox(.25,1,shirtMat);  leftArm.position.set(-.65,1.2,0)
+const rightArm=makeBox(.25,1,shirtMat); rightArm.position.set(.65,1.2,0)
+const leftLeg=makeBox(.3,1,denim);      leftLeg.position.set(-.25,.4,0)
+const rightLeg=makeBox(.3,1,denim);     rightLeg.position.set(.25,.4,0)
 
 character.add(body,head,leftArm,rightArm,leftLeg,rightLeg)
 // Cast shadows on all devices (character is just 6 small boxes — very cheap)
