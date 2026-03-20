@@ -118,53 +118,101 @@ body{
   white-space:nowrap;
   transition:opacity 0.5s ease;
 }
-#controls-hud{
+/* ── JOYSTICK ── */
+#joystick-wrap{
   position:absolute;
-  bottom:28px;
+  bottom:44px;
   left:50%;
   transform:translateX(-50%);
-  display:grid;
-  grid-template-columns:repeat(3,60px);
-  grid-template-rows:repeat(3,60px);
-  gap:5px;
   z-index:10;
   user-select:none;
   touch-action:none;
 }
-
-.key{
-  width:60px;
-  height:60px;
-  background:var(--glass);
-  border:1px solid var(--glass-border);
-  border-radius:14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:rgba(255,255,255,0.7);
-  font-size:20px;
-  font-weight:400;
-  transition:background 0.08s, border-color 0.08s, transform 0.08s, box-shadow 0.08s;
+#joystick-base{
+  width:110px;
+  height:110px;
+  border-radius:50%;
+  background:rgba(8,6,24,0.5);
+  border:2px solid rgba(255,122,0,0.25);
   backdrop-filter:blur(14px);
+  box-shadow:0 4px 24px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,122,0,0.04);
+  position:relative;
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
-  box-shadow:0 2px 12px rgba(0,0,0,0.4);
+}
+#joystick-knob{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, rgba(255,160,60,0.9), rgba(255,90,0,0.7));
+  border:2px solid rgba(255,160,60,0.6);
+  box-shadow:0 0 14px rgba(255,122,0,0.5), inset 0 2px 4px rgba(255,255,255,0.2);
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  transition:box-shadow 0.1s;
+  pointer-events:none;
+}
+#joystick-base.active #joystick-knob{
+  box-shadow:0 0 24px rgba(255,122,0,0.8), inset 0 2px 4px rgba(255,255,255,0.25);
 }
 
-.key.active{
-  background:rgba(255,122,0,0.28);
-  border-color:var(--orange);
+/* ── PERFORMER TICKER ── */
+#ticker-wrap{
+  position:absolute;
+  bottom:0;
+  left:0; right:0;
+  height:32px;
+  background:rgba(4,2,18,0.88);
+  border-top:1px solid rgba(255,122,0,0.3);
+  overflow:hidden;
+  z-index:10;
+  display:flex;
+  align-items:center;
+}
+#ticker-label{
+  flex-shrink:0;
+  padding:0 14px;
+  font-family:'Bebas Neue',sans-serif;
+  font-size:13px;
+  letter-spacing:0.15em;
+  color:var(--orange);
+  border-right:1px solid rgba(255,122,0,0.3);
+  white-space:nowrap;
+  height:100%;
+  display:flex;
+  align-items:center;
+}
+#ticker-track{
+  flex:1;
+  overflow:hidden;
+  position:relative;
+  height:100%;
+}
+#ticker-inner{
+  display:flex;
+  align-items:center;
+  height:100%;
+  white-space:nowrap;
+  animation:tickerScroll 40s linear infinite;
+  will-change:transform;
+}
+#ticker-inner span{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:14px;
+  letter-spacing:0.18em;
   color:#fff;
-  transform:scale(0.9);
-  box-shadow:0 0 18px var(--orange-glow), inset 0 0 8px rgba(255,122,0,0.15);
+  padding:0 6px;
 }
-
-/* grid placement */
-#key-up    { grid-column:2; grid-row:1; }
-#key-left  { grid-column:1; grid-row:2; }
-#key-mid   { grid-column:2; grid-row:2; background:rgba(255,122,0,0.06); border-color:rgba(255,122,0,0.1); pointer-events:none; border-radius:50%; }
-#key-right { grid-column:3; grid-row:2; }
-#key-down  { grid-column:2; grid-row:3; }
+#ticker-inner span.dot{
+  color:var(--orange);
+  font-size:10px;
+  padding:0 4px;
+}
+@keyframes tickerScroll{
+  0%  { transform:translateX(0) }
+  100%{ transform:translateX(-50%) }
+}
 
 /* ── STATION POPUP ── */
 #station-popup{
@@ -508,7 +556,7 @@ body{
 </div>
 
 <!-- Hint pill -->
-<div id="hint">Move with WASD or tap the d-pad</div>
+<div id="hint">Drag joystick or use WASD to move</div>
 
 <!-- Instruction pill -->
 <div id="instruction">Register near a stage to secure your spot</div>
@@ -533,13 +581,19 @@ body{
   </div>
 </div>
 
-<!-- Controls D-Pad -->
-<div id="controls-hud">
-  <div class="key" id="key-up">↑</div>
-  <div class="key" id="key-left">←</div>
-  <div class="key" id="key-mid"></div>
-  <div class="key" id="key-right">→</div>
-  <div class="key" id="key-down">↓</div>
+<!-- Joystick -->
+<div id="joystick-wrap">
+  <div id="joystick-base">
+    <div id="joystick-knob"></div>
+  </div>
+</div>
+
+<!-- Performer ticker strip -->
+<div id="ticker-wrap">
+  <div id="ticker-label">PERFORMERS</div>
+  <div id="ticker-track">
+    <div id="ticker-inner"></div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
@@ -1825,51 +1879,103 @@ function createFirework(){
 }
 
 /* ─────────────────────────────────────────
-   CONTROLS
+   CONTROLS — Joystick (touch) + WASD (keyboard)
 ───────────────────────────────────────── */
 
 const keys={ up:false, down:false, left:false, right:false }
+
+// ── Keyboard (desktop) ──
 const keyMap={
   'w':'up','ArrowUp':'up',
   's':'down','ArrowDown':'down',
   'a':'left','ArrowLeft':'left',
   'd':'right','ArrowRight':'right'
 }
-const dirEls={
-  up:    document.getElementById('key-up'),
-  down:  document.getElementById('key-down'),
-  left:  document.getElementById('key-left'),
-  right: document.getElementById('key-right')
-}
-
-function setKey(dir, val){
-  if(!(dir in keys)) return
-  // Start audio here — this fires inside the actual touch/mouse handler
-  // which is the only gesture iOS will accept for AudioContext
-  if(val) startAudio()
-  keys[dir] = val
-  if(val) dirEls[dir].classList.add('active')
-  else    dirEls[dir].classList.remove('active')
-  document.getElementById('hint').style.opacity='0'
-}
-
 document.addEventListener('keydown', e=>{
   const dir = keyMap[e.key]
-  if(dir){ e.preventDefault(); setKey(dir, true) }
+  if(dir){ e.preventDefault(); startAudio(); keys[dir]=true; document.getElementById('hint').style.opacity='0' }
 })
 document.addEventListener('keyup', e=>{
   const dir = keyMap[e.key]
-  if(dir){ setKey(dir, false) }
+  if(dir) keys[dir]=false
 })
 
-Object.entries(dirEls).forEach(([dir, el])=>{
-  el.addEventListener('touchstart', e=>{ e.preventDefault(); startAudio(); setKey(dir, true)  }, {passive:false})
-  el.addEventListener('touchend',   e=>{ e.preventDefault(); setKey(dir, false) }, {passive:false})
-  el.addEventListener('touchcancel',e=>{ e.preventDefault(); setKey(dir, false) }, {passive:false})
-  el.addEventListener('mousedown',  ()=>{ startAudio(); setKey(dir, true)  })
-  el.addEventListener('mouseup',    ()=>setKey(dir, false))
-  el.addEventListener('mouseleave', ()=>setKey(dir, false))
-})
+// ── Joystick (touch + mouse) ──
+const joystickBase = document.getElementById('joystick-base')
+const joystickKnob = document.getElementById('joystick-knob')
+const JOY_R = 33   // max knob travel radius (px)
+let joyActive = false
+let joyOrigin = {x:0, y:0}
+
+function joyStart(cx, cy){
+  startAudio()
+  joyActive = true
+  joystickBase.classList.add('active')
+  document.getElementById('hint').style.opacity='0'
+  const r = joystickBase.getBoundingClientRect()
+  joyOrigin = { x: r.left + r.width/2, y: r.top + r.height/2 }
+  joyMove(cx, cy)
+}
+
+function joyMove(cx, cy){
+  if(!joyActive) return
+  let dx = cx - joyOrigin.x
+  let dy = cy - joyOrigin.y
+  const dist = Math.sqrt(dx*dx + dy*dy)
+  if(dist > JOY_R){ dx = dx/dist*JOY_R; dy = dy/dist*JOY_R }
+
+  joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`
+
+  const DEAD = 0.2   // dead zone
+  const nx = dx / JOY_R
+  const ny = dy / JOY_R
+  keys.right = nx >  DEAD
+  keys.left  = nx < -DEAD
+  keys.up    = ny < -DEAD
+  keys.down  = ny >  DEAD
+}
+
+function joyEnd(){
+  joyActive = false
+  joystickBase.classList.remove('active')
+  joystickKnob.style.transform = 'translate(-50%,-50%)'
+  keys.up = keys.down = keys.left = keys.right = false
+}
+
+joystickBase.addEventListener('touchstart', e=>{ e.preventDefault(); const t=e.touches[0]; joyStart(t.clientX,t.clientY) }, {passive:false})
+joystickBase.addEventListener('touchmove',  e=>{ e.preventDefault(); const t=e.touches[0]; joyMove(t.clientX,t.clientY)  }, {passive:false})
+joystickBase.addEventListener('touchend',   e=>{ e.preventDefault(); joyEnd() }, {passive:false})
+joystickBase.addEventListener('touchcancel',e=>{ e.preventDefault(); joyEnd() }, {passive:false})
+joystickBase.addEventListener('mousedown',  e=>{ joyStart(e.clientX,e.clientY) })
+document.addEventListener('mousemove', e=>{ joyMove(e.clientX,e.clientY) })
+document.addEventListener('mouseup',   ()=>{ joyEnd() })
+
+// ── Ticker strip ──
+;(function(){
+  const names = [
+    'HARSH','RUDRAVEERA','ROHAN','ANANNYA','MAHEK',
+    'SHUBH','FAITH','SARRTHHAK','ROOHAN','PRACHI',
+    'DEVARSH','PRISHA','AKSH','DIYA','KRISH',
+    'ARHAM','ARAV','AAYUSHI','ARNAV','NAMAN',
+    'RISHIKA','SAARANG','PARNIKA','NITYA','CHAITYA',
+    'AINESH','HIMAJA','RITVIK','SHASHWAT','AMARJEET',
+    'NIVA','ANNICA','SAMRIDHI','THIEA','RISHI',
+    'PULAK','RUCHI','KABIR','HETVI','AEKANSH'
+  ]
+  // Duplicate for seamless loop
+  const inner = document.getElementById('ticker-inner')
+  ;[...names,...names].forEach((n,i)=>{
+    const span = document.createElement('span')
+    span.textContent = n
+    inner.appendChild(span)
+    if(i < names.length*2-1){
+      const dot = document.createElement('span')
+      dot.textContent = '·'
+      dot.className = 'dot'
+      inner.appendChild(dot)
+    }
+  })
+})()
 
 /* ─────────────────────────────────────────
    AUDIO — bulletproof iOS/Android
