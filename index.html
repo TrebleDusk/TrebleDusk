@@ -194,7 +194,7 @@ body{
   align-items:center;
   height:100%;
   white-space:nowrap;
-  animation:tickerScroll 12s linear infinite;
+  animation:tickerScroll 6s linear infinite;
   will-change:transform;
 }
 #ticker-inner span{
@@ -2053,6 +2053,17 @@ function startAudio(){
 document.addEventListener('keydown',   startAudio, {once:true})
 document.addEventListener('mousedown', startAudio, {once:true})
 document.addEventListener('touchend',  startAudio, {once:true})
+
+// Pause when tab is hidden / phone screen locks / user switches app
+document.addEventListener('visibilitychange', ()=>{
+  if(!song) return
+  if(document.hidden){
+    song.pause()
+  } else {
+    // Only resume if audio was already started by user gesture
+    if(audioStarted) song.play().catch(()=>{})
+  }
+})
 
 const VOL_MIN  = 0.02   // very quiet when far away
 const VOL_MAX  = 0.35   // loud when right at stage
