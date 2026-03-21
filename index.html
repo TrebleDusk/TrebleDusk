@@ -453,6 +453,39 @@ body{
   color:rgba(255,255,255,0.85);
   letter-spacing:0.01em;
 }
+/* ── BURN OVERLAY ── */
+#burn-overlay{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:50;
+  opacity:0;
+  background:radial-gradient(ellipse at center, transparent 20%, rgba(255,80,0,0.5) 65%, rgba(180,10,0,0.9) 100%);
+}
+#burn-overlay.burning{
+  animation:burnFlicker 0.1s infinite alternate;
+}
+@keyframes burnFlicker{
+  from{ opacity:0.75; }
+  to  { opacity:1.0;  }
+}
+/* ── BURN OVERLAY ── */
+#burn-overlay{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  pointer-events:none;
+  opacity:0;
+  background:radial-gradient(ellipse at center, rgba(255,80,0,0.0) 20%, rgba(255,30,0,0.9) 100%);
+  transition:opacity 0.08s ease;
+}
+#burn-overlay.active{ opacity:1; animation:burnShake 0.12s ease infinite; }
+@keyframes burnShake{
+  0%,100%{ transform:translate(0,0) rotate(0deg) }
+  25%{ transform:translate(-5px,4px) rotate(-0.5deg) }
+  75%{ transform:translate(5px,-4px) rotate(0.5deg) }
+}
+
 #badge{
   position:absolute;
   top:18px;
@@ -521,6 +554,9 @@ body{
   <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
 </div>
 
+<!-- Burn overlay -->
+<div id="burn-overlay"></div>
+
 <!-- Vignette overlay -->
 <div id="overlay"></div>
 
@@ -528,7 +564,7 @@ body{
 <div id="countdown">
   <div id="countdown-label">Event starts in</div>
   <div id="countdown-time">--:--:--</div>
-  <div id="countdown-date">1 Apr 2026 · 6:00 PM</div>
+  <div id="countdown-date">1 Apr 2026 · 5:00 PM</div>
 </div>
 
 <!-- Greeter dialog -->
@@ -549,6 +585,9 @@ body{
   </div>
 </div>
 
+<!-- Burn overlay -->
+<div id="burn-overlay"></div>
+
 <!-- Top-left badge -->
 <div id="badge">
   <span id="badge-name">TREBLE DUSK</span>
@@ -567,7 +606,7 @@ body{
     <div id="popup-tag">Now Entering</div>
     <div id="popup-name">Main Stage</div>
     <div id="popup-desc">Doors open 8PM · General Admission</div>
-    <a id="popup-cta" href="#">Register Now →</a>
+    <a id="popup-cta" href="https://forms.gle/ThMsPeEyZX54LXs96" target="_blank">Register Now →</a>
   </div>
 </div>
 
@@ -577,7 +616,7 @@ body{
     <div id="title-eyebrow">You've arrived</div>
     <h1>TREBLE<br>DUSK</h1>
     <div id="title-version">7.0</div>
-    <a id="title-cta" href="#">Register Now →</a>
+    <a id="title-cta" href="https://forms.gle/ThMsPeEyZX54LXs96" target="_blank">Register Now →</a>
   </div>
 </div>
 
@@ -1336,9 +1375,9 @@ function buildStage(cx, cz, themeColor, themeColorDim){
 
 // Station definitions: x, z, theme color, dim color, name, tag, desc
 const STATIONS = [
-  { x:  0, z:-62, color:0xff5500, dimColor:0x331100, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
-  { x:-28, z:-42, color:0x00aaff, dimColor:0x001a33, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
-  { x: 28, z:-42, color:0xcc00ff, dimColor:0x1a0033, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  6:00 PM – 9:00 PM' },
+  { x:  0, z:-62, color:0xff5500, dimColor:0x331100, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  5:00 PM' },
+  { x:-28, z:-42, color:0x00aaff, dimColor:0x001a33, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  5:00 PM' },
+  { x: 28, z:-42, color:0xcc00ff, dimColor:0x1a0033, name:'THE MULTIPURPOSE HALL', tag:'Treble Dusk 7.0', desc:'1 Apr 2026  ·  5:00 PM' },
 ]
 
 STATIONS.forEach(s=>{
@@ -1679,19 +1718,23 @@ function buildGreeter(cx, cz, opts){
   hc.width = 512; hc.height = 160
   const hCtx = hc.getContext('2d')
 
-  // Background — semi-transparent hologram tint
+  // Background — solid dark so text is readable
   const hex6 = '#' + holoColor.toString(16).padStart(6,'0')
-  hCtx.fillStyle = 'rgba(0,0,0,0)'
+  hCtx.fillStyle = 'rgba(2,4,20,0.95)'
   hCtx.fillRect(0,0,512,160)
 
-  // Glowing background panel
-  hCtx.fillStyle = hex6.replace('#','').length===6 ? hex6+'22' : 'rgba(0,200,255,0.12)'
+  // Coloured tint overlay
+  hCtx.fillStyle = hex6 + '18'
   hCtx.fillRect(4,4,504,152)
 
-  // Border
+  // Border — thick and bright
   hCtx.strokeStyle = hex6
-  hCtx.lineWidth = 3
-  hCtx.strokeRect(4,4,504,152)
+  hCtx.lineWidth = 5
+  hCtx.strokeRect(3,3,506,154)
+  // Inner thin border
+  hCtx.strokeStyle = 'rgba(255,255,255,0.25)'
+  hCtx.lineWidth = 1
+  hCtx.strokeRect(10,10,492,140)
 
   // Corner accent dots
   ;[[4,4],[508,4],[4,156],[508,156]].forEach(([cx2,cy2])=>{
@@ -1702,39 +1745,35 @@ function buildGreeter(cx, cz, opts){
   })
 
   // Treble Dusk label (small, top)
-  hCtx.font = '600 22px Outfit, Arial'
+  hCtx.font = 'bold 20px Arial'
   hCtx.fillStyle = hex6
   hCtx.textAlign = 'center'
-  hCtx.letterSpacing = '6px'
-  hCtx.fillText('TREBLE DUSK 7.0', 256, 44)
+  hCtx.fillText('TREBLE DUSK 7.0', 256, 38)
 
   // Divider line
   hCtx.strokeStyle = hex6
-  hCtx.globalAlpha = 0.4
-  hCtx.lineWidth = 1
-  hCtx.beginPath(); hCtx.moveTo(40,56); hCtx.lineTo(472,56); hCtx.stroke()
+  hCtx.globalAlpha = 0.6
+  hCtx.lineWidth = 1.5
+  hCtx.beginPath(); hCtx.moveTo(30,50); hCtx.lineTo(482,50); hCtx.stroke()
   hCtx.globalAlpha = 1
 
-  // Designation text (big, centre)
-  hCtx.font = 'bold 38px Bebas Neue, Impact, Arial'
-  hCtx.fillStyle = '#ffffff'
+  // Designation text — large, bold, white with colour shadow
+  hCtx.font = 'bold 52px Impact, Arial'
   hCtx.textAlign = 'center'
-  hCtx.fillText(opts.designation || 'COMMITTEE', 256, 106)
-
-  // Bottom scan-line effect
-  for(let sy=120; sy<152; sy+=4){
-    hCtx.fillStyle = `rgba(${parseInt(hex6.slice(1,3),16)},${parseInt(hex6.slice(3,5),16)},${parseInt(hex6.slice(5,7),16)},0.08)`
-    hCtx.fillRect(4,sy,504,2)
-  }
+  // Colour glow behind text
+  hCtx.fillStyle = hex6
+  hCtx.fillText(opts.designation || 'COMMITTEE', 258, 116)
+  // White text on top
+  hCtx.fillStyle = '#ffffff'
+  hCtx.fillText(opts.designation || 'COMMITTEE', 256, 114)
 
   const holoTex = new THREE.CanvasTexture(hc)
   const holoPanelMat = new THREE.MeshBasicMaterial({
-    map: holoTex, transparent: true, opacity: 0.92,
-    side: THREE.DoubleSide, depthWrite: false
+    map: holoTex, transparent: false,
+    side: THREE.DoubleSide
   })
 
-  // Billboard panel sized to match canvas aspect (512:160 = 3.2:1)
-  const holoPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.56), holoPanelMat)
+  const holoPanel = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.69), holoPanelMat)
   holoGroup.add(holoPanel)
 
   // Glowing border glow (thin emissive plane slightly behind)
@@ -2116,6 +2155,25 @@ let characterFacing = 0
 
 function clamp(val, min, max){ return Math.max(min, Math.min(max, val)) }
 
+/* ── BURN / RESPAWN ── */
+let burnActive = false
+const burnOverlay = document.getElementById('burn-overlay')
+const SPAWN = {x:0, y:0, z:10}
+
+function triggerBurn(){
+  if(burnActive) return
+  burnActive = true
+  burnOverlay.classList.add('active')
+  keys.up = keys.down = keys.left = keys.right = false
+
+  setTimeout(()=>{
+    character.position.set(SPAWN.x, SPAWN.y, SPAWN.z)
+    camera.position.set(SPAWN.x, 4, SPAWN.z + 8)
+    burnOverlay.classList.remove('active')
+    setTimeout(()=>{ burnActive = false }, 400)
+  }, 1200)
+}
+
 /* ─────────────────────────────────────────
    VOLUMETRIC LIGHT BEAMS (desktop only)
 ───────────────────────────────────────── */
@@ -2254,6 +2312,20 @@ function animate(){
   updateDayNight()
   planetGroups.forEach(pg=>{ pg.rotation.y += pg.userData.rotSpeed })
 
+  // ── FIRE BURN CHECK ──
+  if(!burnActive){
+    const FIRE_RADIUS = 2.2
+    const bonfires = [{x:-8,z:-32},{x:8,z:-32}]
+    for(const bf of bonfires){
+      const dx = character.position.x - bf.x
+      const dz = character.position.z - bf.z
+      if(Math.sqrt(dx*dx+dz*dz) < FIRE_RADIUS){
+        triggerBurn()
+        break
+      }
+    }
+  }
+
   // Greeter idle bob + hologram pulse + talking head turns
   const gt = Date.now()
   greeterChars.forEach((gc,i)=>{
@@ -2342,8 +2414,8 @@ STATIONS.forEach(s=>{
 
 /* COUNTDOWN TIMER */
 function updateCountdown(){
-  const eventStart = new Date('2026-04-01T18:00:00')
-  const eventEnd   = new Date('2026-04-01T21:00:00')
+  const eventStart = new Date('2026-04-01T17:00:00')
+  const eventEnd   = new Date('2026-04-01T20:00:00')
   const now        = new Date()
   const diff       = eventStart - now
 
